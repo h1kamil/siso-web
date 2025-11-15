@@ -16,7 +16,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .subtitle {
@@ -141,6 +141,8 @@ button:hover {
   background: #3b82f6;
 }
 
+/* Nachrichtenliste mit X daneben */
+
 #message-list {
   list-style: none;
   padding: 0;
@@ -151,9 +153,11 @@ button:hover {
 }
 
 #message-list li {
-  margin: 6px 0;
+  display: flex;
+  align-items: flex-start;
   max-width: 80%;
-  padding: 8px;
+  padding: 6px 8px;
+  margin: 6px 0;
   border-radius: 6px;
 }
 
@@ -167,8 +171,26 @@ button:hover {
   background: #374151;
 }
 
+.msg-content {
+  flex: 1;
+}
+
 .msg-text {
+  cursor: default; /* Inhalt selbst ist nicht mehr der Klick-Trigger */
+}
+
+.msg-close {
+  margin-left: 6px;
+  border: none;
+  background: transparent;
+  color: #ccc;
   cursor: pointer;
+  padding: 0 4px;
+  font-size: 0.9rem;
+}
+
+.msg-close:hover {
+  color: #fff;
 }
 
 .msg-image {
@@ -187,4 +209,38 @@ button:hover {
 .message-input input[type="text"],
 .message-input input:not([type]) {
   flex: 1;
+}
+
+/* Kamera-Overlay */
+
+.camera-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 50;
+}
+
+.camera-inner {
+  background: #111;
+  padding: 12px;
+  border-radius: 8px;
+  max-width: 90vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+#camera-video {
+  width: 100%;
+  max-height: 60vh;
+  background: #000;
+}
+
+.camera-controls {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
 }
