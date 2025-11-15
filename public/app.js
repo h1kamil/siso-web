@@ -73,7 +73,7 @@ const cameraVideo = document.getElementById('camera-video');
 const takePhotoBtn = document.getElementById('take-photo-btn');
 const closeCameraBtn = document.getElementById('close-camera-btn');
 
-const qrcodeCanvas = document.getElementById('qrcode');
+const qrcodeImg = document.getElementById('qrcode-img');
 
 // ---------- Zustand ----------
 
@@ -92,11 +92,13 @@ if (myShortIdSpan) myShortIdSpan.textContent = myShortId;
 const inviteLink = `${window.location.origin}/#${myUserId}`;
 if (inviteLinkInput) inviteLinkInput.value = inviteLink;
 
-if (window.QRCode && qrcodeCanvas) {
-  QRCode.toCanvas(qrcodeCanvas, inviteLink, { width: 200 }, (error) => {
-    if (error) console.error(error);
-  });
+// QR-Code als Bild laden (ohne extra JS-Bibliothek)
+if (qrcodeImg) {
+  qrcodeImg.src =
+    'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' +
+    encodeURIComponent(inviteLink);
 }
+
 
 if (displayNameInput) {
   displayNameInput.value = loadDisplayNameLocal();
