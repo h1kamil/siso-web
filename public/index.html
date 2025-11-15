@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <title>siso – sicherer 1:1-Webchat</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- QR-Code-Bibliothek -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>siso</h1>
+      <p class="subtitle">1-View-Webchat (Nachrichten werden nach Lesen gelöscht)</p>
+    </header>
+
+    <section class="identity">
+      <h2>Deine siso-ID</h2>
+      <p><strong>ID (intern):</strong> <span id="my-id"></span></p>
+      <p><strong>Kurz-ID:</strong> <span id="my-short-id"></span></p>
+      <p><strong>Invite-Link:</strong></p>
+      <input id="invite-link" readonly />
+      <button id="copy-link-btn">Link kopieren</button>
+
+      <h3>QR-Code zum Teilen</h3>
+      <canvas id="qrcode"></canvas>
+    </section>
+
+    <section class="connect">
+      <h2>Mit einer anderen Person verbinden</h2>
+      <p>
+        Lass dir den Invite-Link oder die volle ID der anderen Person geben
+        und trage sie hier ein:
+      </p>
+
+      <label>
+        ID der anderen Person:
+        <input id="other-id-input" />
+      </label>
+      <button id="add-chat-btn">Chat anlegen</button>
+
+      <p class="info">
+        Wenn du den Invite-Link klickst (z.&nbsp;B. <code>https://deine-siso-url/#USERID</code>),
+        erkennt siso automatisch, mit wem du chatten willst.
+      </p>
+    </section>
+
+    <main class="chat-layout">
+      <aside class="chat-list">
+        <h2>Deine Chats</h2>
+        <ul id="chat-list"></ul>
+      </aside>
+
+      <section class="chat-window">
+        <div id="chat-info"></div>
+        <button id="reload-messages-btn">Neue Nachrichten laden</button>
+        <ul id="message-list"></ul>
+        <div class="message-input">
+          <input id="message-input" placeholder="Nachricht eingeben…" />
+          <button id="send-btn">Senden</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
