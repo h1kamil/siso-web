@@ -72,6 +72,8 @@ const cameraModal = document.getElementById('camera-modal');
 const cameraVideo = document.getElementById('camera-video');
 const takePhotoBtn = document.getElementById('take-photo-btn');
 const closeCameraBtn = document.getElementById('close-camera-btn');
+const switchCameraBtn = document.getElementById('switch-camera-btn');
+
 
 const qrcodeImg = document.getElementById('qrcode-img');
 
@@ -81,6 +83,7 @@ let chats = [];
 let messagesByChat = {};
 let activeChatId = null;
 let cameraStream = null;
+let currentFacingMode = 'environment'; // 'environment' = Rückkamera, 'user' = Frontkamera
 
 const MESSAGE_POLL_INTERVAL_MS = 4000;
 
@@ -309,9 +312,15 @@ async function openCamera() {
     return;
   }
 
+  // Falls schon ein Stream läuft: erst stoppen
+  if (cameraStream) {
+    cameraStream.getTracks().forEach((t) => t.stop());
+    cameraStream = null;
+  }
+
   try {
     cameraStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment' },
+      video: { facingMode: { ideal: currentFacingMode } },
       audio: false,
     });
   } catch (e) {
@@ -328,6 +337,7 @@ async function openCamera() {
   }
 }
 
+
 function closeCamera() {
   if (cameraStream) {
     cameraStream.getTracks().forEach((t) => t.stop());
@@ -339,6 +349,14 @@ function closeCamera() {
   if (cameraModal) {
     cameraModal.classList.add('hidden');
   }
+}
+
+async function switchCamera() {
+  // Modus umschalten
+  currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+
+  // Kamera mit neuem Modus neu öffnen
+  await openCamera();
 }
 
 async function takePhoto() {
@@ -600,6 +618,12 @@ if (takePhotoBtn) {
 if (closeCameraBtn) {
   closeCameraBtn.addEventListener('click', () => {
     closeCamera();
+  });
+}
+
+if (switchCameraBtn) {
+  switchCameraBtn.addEventListener('click', async () => {
+    await switchCamera();
   });
 }
 
