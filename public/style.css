@@ -84,7 +84,7 @@ button:hover {
   display: none;
 }
 
-/* Layout für Chatbereich */
+/* Chat-Layout */
 
 .chat-layout {
   display: flex;
@@ -141,7 +141,7 @@ button:hover {
   background: #3b82f6;
 }
 
-/* Nachrichtenliste mit X daneben */
+/* Nachrichtenliste mit X */
 
 #message-list {
   list-style: none;
@@ -176,7 +176,7 @@ button:hover {
 }
 
 .msg-text {
-  cursor: default; /* Inhalt selbst ist nicht mehr der Klick-Trigger */
+  cursor: default;
 }
 
 .msg-close {
