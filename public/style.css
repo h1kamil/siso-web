@@ -164,7 +164,7 @@ button:hover {
 /* eigene Nachrichten: rechts, dunkelgrün, weiße Schrift */
 .msg-me {
   margin-left: auto;
-  margin-right: 100;
+  margin-right: 0;
   background: #064e3b;   /* dunkles Grün */
   color: #ffffff;        /* Text immer weiß */
 }
