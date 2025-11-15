@@ -1,11 +1,12 @@
 // app.js
 // - User-ID & Anzeigename
+// - Anzeigename wird auf dem Server gespeichert, andere sehen ihn
 // - Invite-Link & QR-Code
 // - Chats mit "+" anlegen
-// - Kontakt-Namen pro Chat speichern
-// - automatische Aktualisierung der Nachrichten (Polling)
-// - Text + Bilder (als data:image/...)
-// - 1-View: Klick -> Nachricht wird gelöscht
+// - automatisches Nachrichten-Polling
+// - Text & Bilder (als data:image/...)
+// - 1-View (Klick löscht Nachricht)
+// - Profil/ID-Bereich per + ein-/ausblendbar
 
 // ---------- User-ID & Short-ID ----------
 
@@ -25,34 +26,22 @@ function getShortId(fullId) {
 const myUserId = getOrCreateUserId();
 const myShortId = getShortId(myUserId);
 
-// ---------- Anzeigename & Chat-Aliase ----------
+// ---------- Anzeigename ----------
 
 const DISPLAY_NAME_KEY = 'siso_display_name';
-const CHAT_ALIASES_KEY = 'siso_chat_aliases';
 
-function loadDisplayName() {
+function loadDisplayNameLocal() {
   return localStorage.getItem(DISPLAY_NAME_KEY) || '';
 }
 
-function saveDisplayName(name) {
+function saveDisplayNameLocal(name) {
   localStorage.setItem(DISPLAY_NAME_KEY, name);
 }
 
-function loadChatAliases() {
-  try {
-    return JSON.parse(localStorage.getItem(CHAT_ALIASES_KEY)) || {};
-  } catch {
-    return {};
-  }
-}
+// userProfiles[userId] = { id, displayName }
+let userProfiles = {};
 
-function saveChatAliases(aliases) {
-  localStorage.setItem(CHAT_ALIASES_KEY, JSON.stringify(aliases));
-}
-
-let chatAliases = loadChatAliases();
-
-// ---------- DOM-Elemente ----------
+// ---------- DOM ----------
 
 const myIdSpan = document.getElementById('my-id');
 const myShortIdSpan = document.getElementById('my-short-id');
@@ -62,11 +51,13 @@ const copyLinkBtn = document.getElementById('copy-link-btn');
 const displayNameInput = document.getElementById('display-name-input');
 const saveDisplayNameBtn = document.getElementById('save-display-name-btn');
 
+const toggleMetaBtn = document.getElementById('toggle-meta-btn');
+const metaPanel = document.getElementById('meta-panel');
+
 const addChatPlusBtn = document.getElementById('add-chat-plus');
 
 const chatListUl = document.getElementById('chat-list');
 const chatInfoDiv = document.getElementById('chat-info');
-const renameChatBtn = document.getElementById('rename-chat-btn');
 const reloadMessagesBtn = document.getElementById('reload-messages-btn');
 const messageListUl = document.getElementById('message-list');
 const messageInput = document.getElementById('message-input');
@@ -77,15 +68,15 @@ const sendImageBtn = document.getElementById('send-image-btn');
 
 const qrcodeCanvas = document.getElementById('qrcode');
 
-// ---------- Zustand im Browser ----------
+// ---------- Zustand ----------
 
-let chats = [];           // Liste aller Chats (vom Server)
-let messagesByChat = {};  // chatId -> Array von Nachrichten
+let chats = [];
+let messagesByChat = {};
 let activeChatId = null;
 
-const MESSAGE_POLL_INTERVAL_MS = 4000; // alle 4 Sekunden nach neuen Nachrichten fragen
+const MESSAGE_POLL_INTERVAL_MS = 4000;
 
-// ---------- Anzeige: eigene ID & Invite ----------
+// ---------- Basisanzeige ----------
 
 myIdSpan.textContent = myUserId;
 myShortIdSpan.textContent = myShortId;
@@ -93,17 +84,17 @@ myShortIdSpan.textContent = myShortId;
 const inviteLink = `${window.location.origin}/#${myUserId}`;
 inviteLinkInput.value = inviteLink;
 
-// QR-Code rendern
+// QR-Code
 if (window.QRCode) {
   QRCode.toCanvas(qrcodeCanvas, inviteLink, { width: 200 }, (error) => {
     if (error) console.error(error);
   });
 }
 
-// eigenen Anzeigenamen in Input laden
-displayNameInput.value = loadDisplayName();
+// eigenen Anzeigenamen in Feld setzen
+displayNameInput.value = loadDisplayNameLocal();
 
-// ---------- API-Helfer ----------
+// ---------- API Helper ----------
 
 async function apiGet(path) {
   const res = await fetch(path);
@@ -127,6 +118,37 @@ async function apiPost(path, bodyObj) {
   return res.json();
 }
 
+// ---------- User-Profile vom Server holen ----------
+
+async function refreshUserProfiles() {
+  if (!chats.length) return;
+
+  const idsSet = new Set();
+  chats.forEach((c) => {
+    idsSet.add(c.userAId);
+    idsSet.add(c.userBId);
+  });
+  idsSet.add(myUserId);
+
+  const ids = Array.from(idsSet);
+  const query = encodeURIComponent(ids.join(','));
+
+  const rows = await apiGet(`/api/users?ids=${query}`);
+  userProfiles = {};
+  rows.forEach((u) => {
+    userProfiles[u.id] = u;
+  });
+
+  renderChatList();
+  renderChatInfo();
+}
+
+function getUserDisplayName(userId) {
+  const profile = userProfiles[userId];
+  if (profile && profile.displayName) return profile.displayName;
+  return null;
+}
+
 // ---------- Chats ----------
 
 async function loadChats() {
@@ -134,8 +156,10 @@ async function loadChats() {
   chats = data;
   renderChatList();
   if (!activeChatId && chats.length > 0) {
-    setActiveChat(chats[0].id);
+    activeChatId = chats[0].id;
   }
+  renderChatInfo();
+  await refreshUserProfiles();
 }
 
 async function ensureChat(otherUserId) {
@@ -160,7 +184,7 @@ function setActiveChat(chatId) {
   loadMessagesForActiveChat().catch((e) => console.error(e));
 }
 
-// Hilfsfunktion: aus Eingabe (ID oder Invite-Link) eine UserID ziehen
+// aus Eingabe eine UserID machen (kann auch ein Invite-Link sein)
 function extractUserIdFromInput(raw) {
   if (!raw) return null;
   raw = raw.trim();
@@ -171,26 +195,24 @@ function extractUserIdFromInput(raw) {
   return raw;
 }
 
-// ---------- Nachrichten laden (mit Auto-Update) ----------
+// ---------- Nachrichten ----------
 
 async function loadMessagesForActiveChat() {
   const chat = getActiveChat();
   if (!chat) return;
-  const serverMsgs = await apiGet(
+  const msgsFromServer = await apiGet(
     `/api/messages?chatId=${encodeURIComponent(chat.id)}&userId=${encodeURIComponent(myUserId)}`
   );
 
   const existing = messagesByChat[chat.id] || [];
   const localOnly = existing.filter((m) => m.localOnly);
 
-  const combined = [...serverMsgs, ...localOnly];
+  const combined = [...msgsFromServer, ...localOnly];
   combined.sort((a, b) => a.createdAt - b.createdAt);
 
   messagesByChat[chat.id] = combined;
   renderMessages();
 }
-
-// ---------- Nachricht senden (Text & Bilder) ----------
 
 async function sendMessage() {
   const chat = getActiveChat();
@@ -251,7 +273,7 @@ async function sendImage() {
 
   const reader = new FileReader();
   reader.onload = async () => {
-    const dataUrl = reader.result; // "data:image/png;base64,..."
+    const dataUrl = reader.result;
     if (typeof dataUrl === 'string') {
       await sendMessageContent(dataUrl);
       imageInput.value = '';
@@ -259,8 +281,6 @@ async function sendImage() {
   };
   reader.readAsDataURL(file);
 }
-
-// ---------- Nachricht "lesen" (1-View) ----------
 
 async function onMessageClicked(msg) {
   const chat = getActiveChat();
@@ -286,9 +306,9 @@ function getOtherUserId(chat) {
 }
 
 function getChatDisplayName(chat) {
-  const alias = chatAliases[chat.id];
-  if (alias && alias.trim()) return alias.trim();
   const otherId = getOtherUserId(chat);
+  const name = getUserDisplayName(otherId);
+  if (name) return name;
   return `User ${getShortId(otherId)}…`;
 }
 
@@ -311,8 +331,8 @@ function renderChatInfo() {
     chatInfoDiv.textContent = 'Kein Chat ausgewählt.';
     return;
   }
-  const displayName = getChatDisplayName(chat);
-  chatInfoDiv.textContent = `Chat: ${displayName}`;
+  const name = getChatDisplayName(chat);
+  chatInfoDiv.textContent = `Chat mit ${name}`;
 }
 
 function renderMessages() {
@@ -346,7 +366,6 @@ function renderMessages() {
     messageListUl.appendChild(li);
   });
 
-  // Scroll automatisch nach unten
   messageListUl.scrollTop = messageListUl.scrollHeight;
 }
 
@@ -358,10 +377,28 @@ copyLinkBtn.addEventListener('click', () => {
   alert('Invite-Link in die Zwischenablage kopiert.');
 });
 
-saveDisplayNameBtn.addEventListener('click', () => {
+saveDisplayNameBtn.addEventListener('click', async () => {
   const name = displayNameInput.value.trim();
-  saveDisplayName(name);
-  alert('Anzeigename gespeichert.');
+  if (!name) {
+    alert('Bitte einen Namen eingeben.');
+    return;
+  }
+  saveDisplayNameLocal(name);
+  try {
+    await apiPost('/api/users/profile', {
+      userId: myUserId,
+      displayName: name,
+    });
+    alert('Anzeigename gespeichert.');
+    await refreshUserProfiles();
+  } catch (e) {
+    console.error(e);
+    alert('Fehler beim Speichern des Namens.');
+  }
+});
+
+toggleMetaBtn.addEventListener('click', () => {
+  metaPanel.classList.toggle('hidden');
 });
 
 addChatPlusBtn.addEventListener('click', async () => {
@@ -369,18 +406,6 @@ addChatPlusBtn.addEventListener('click', async () => {
   const otherId = extractUserIdFromInput(raw || '');
   if (!otherId) return;
   await ensureChat(otherId);
-});
-
-renameChatBtn.addEventListener('click', () => {
-  const chat = getActiveChat();
-  if (!chat) return;
-  const currentAlias = chatAliases[chat.id] || '';
-  const newName = prompt('Name für diesen Kontakt:', currentAlias);
-  if (newName === null) return; // Abbrechen
-  chatAliases[chat.id] = newName.trim();
-  saveChatAliases(chatAliases);
-  renderChatList();
-  renderChatInfo();
 });
 
 sendBtn.addEventListener('click', async () => {
@@ -401,12 +426,12 @@ sendImageBtn.addEventListener('click', async () => {
   await sendImage();
 });
 
-// ---------- Initialisierung (inkl. Auto-Polling) ----------
+// ---------- Init ----------
 
 (async function init() {
   await loadChats();
 
-  // Hash-Invite (#USERID) verarbeiten
+  // Hash-Invite: #USERID
   const hash = window.location.hash;
   if (hash.startsWith('#')) {
     const otherId = hash.slice(1);
@@ -417,7 +442,7 @@ sendImageBtn.addEventListener('click', async () => {
 
   await loadMessagesForActiveChat();
 
-  // Auto-Polling: alle X Sekunden neue Nachrichten holen
+  // Auto-Polling
   setInterval(() => {
     loadMessagesForActiveChat().catch((e) => console.error(e));
   }, MESSAGE_POLL_INTERVAL_MS);
