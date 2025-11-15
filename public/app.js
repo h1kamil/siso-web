@@ -1,12 +1,12 @@
 // app.js
-// - User-ID & Anzeigename
-// - Anzeigename wird auf dem Server gespeichert, andere sehen ihn
+// - User-ID & Anzeigename (vom Server gelesen)
 // - Invite-Link & QR-Code
 // - Chats mit "+" anlegen
 // - automatisches Nachrichten-Polling
-// - Text & Bilder (als data:image/...)
-// - 1-View (Klick löscht Nachricht)
+// - Text & Bilder (Album + Kamera ohne Galerie-Speicherung)
+// - 1-View (Klick auf ✕ löscht Nachricht)
 // - Profil/ID-Bereich per + ein-/ausblendbar
+// - Chat-Löschen mit Hinweis "für euch beide"
 
 // ---------- User-ID & Short-ID ----------
 
@@ -58,6 +58,7 @@ const addChatPlusBtn = document.getElementById('add-chat-plus');
 
 const chatListUl = document.getElementById('chat-list');
 const chatInfoDiv = document.getElementById('chat-info');
+const deleteChatBtn = document.getElementById('delete-chat-btn');
 const reloadMessagesBtn = document.getElementById('reload-messages-btn');
 const messageListUl = document.getElementById('message-list');
 const messageInput = document.getElementById('message-input');
@@ -65,6 +66,12 @@ const sendBtn = document.getElementById('send-btn');
 
 const imageInput = document.getElementById('image-input');
 const sendImageBtn = document.getElementById('send-image-btn');
+const cameraBtn = document.getElementById('camera-btn');
+
+const cameraModal = document.getElementById('camera-modal');
+const cameraVideo = document.getElementById('camera-video');
+const takePhotoBtn = document.getElementById('take-photo-btn');
+const closeCameraBtn = document.getElementById('close-camera-btn');
 
 const qrcodeCanvas = document.getElementById('qrcode');
 
@@ -73,6 +80,7 @@ const qrcodeCanvas = document.getElementById('qrcode');
 let chats = [];
 let messagesByChat = {};
 let activeChatId = null;
+let cameraStream = null;
 
 const MESSAGE_POLL_INTERVAL_MS = 4000;
 
@@ -114,6 +122,15 @@ async function apiPost(path, bodyObj) {
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`POST ${path} fehlgeschlagen: ${res.status} ${text}`);
+  }
+  return res.json();
+}
+
+async function apiDelete(path) {
+  const res = await fetch(path, { method: 'DELETE' });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`DELETE ${path} fehlgeschlagen: ${res.status} ${text}`);
   }
   return res.json();
 }
@@ -184,7 +201,6 @@ function setActiveChat(chatId) {
   loadMessagesForActiveChat().catch((e) => console.error(e));
 }
 
-// aus Eingabe eine UserID machen (kann auch ein Invite-Link sein)
 function extractUserIdFromInput(raw) {
   if (!raw) return null;
   raw = raw.trim();
@@ -254,7 +270,8 @@ async function sendMessageContent(content) {
   renderMessages();
 }
 
-async function sendImage() {
+// Bild aus Album / Dateien senden
+async function sendImageFromInput() {
   const chat = getActiveChat();
   if (!chat) {
     alert('Bitte zuerst einen Chat auswählen oder anlegen.');
@@ -282,6 +299,58 @@ async function sendImage() {
   reader.readAsDataURL(file);
 }
 
+// Kamera-Foto aufnehmen, ohne in Galerie zu speichern
+async function openCamera() {
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment' },
+      audio: false,
+    });
+  } catch (e) {
+    console.error(e);
+    alert('Kamera konnte nicht geöffnet werden (Berechtigungen prüfen).');
+    return;
+  }
+
+  cameraVideo.srcObject = cameraStream;
+  cameraModal.classList.remove('hidden');
+}
+
+function closeCamera() {
+  if (cameraStream) {
+    cameraStream.getTracks().forEach((t) => t.stop());
+    cameraStream = null;
+  }
+  cameraVideo.srcObject = null;
+  cameraModal.classList.add('hidden');
+}
+
+async function takePhoto() {
+  if (!cameraStream) return;
+  const chat = getActiveChat();
+  if (!chat) {
+    alert('Bitte zuerst einen Chat auswählen oder anlegen.');
+    return;
+  }
+
+  const video = cameraVideo;
+  if (!video.videoWidth || !video.videoHeight) {
+    alert('Kamera ist noch nicht bereit. Bitte kurz warten und erneut versuchen.');
+    return;
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+  await sendMessageContent(dataUrl);
+  closeCamera();
+}
+
+// Nachricht löschen (1-View) – ausgelöst durch ✕
 async function onMessageClicked(msg) {
   const chat = getActiveChat();
   if (!chat) return;
@@ -296,6 +365,44 @@ async function onMessageClicked(msg) {
 
   const arr = messagesByChat[chat.id] || [];
   messagesByChat[chat.id] = arr.filter((m) => m.id !== msg.id);
+  renderMessages();
+}
+
+// ---------- Chat löschen ----------
+
+async function deleteActiveChat() {
+  const chat = getActiveChat();
+  if (!chat) {
+    alert('Kein Chat ausgewählt.');
+    return;
+  }
+
+  const confirmed = confirm(
+    'Diesen Chat und alle Nachrichten FÜR EUCH BEIDE endgültig löschen?'
+  );
+  if (!confirmed) return;
+
+  try {
+    await apiDelete(
+      `/api/chats/${encodeURIComponent(chat.id)}?userId=${encodeURIComponent(myUserId)}`
+    );
+  } catch (e) {
+    console.error(e);
+    alert('Fehler beim Löschen des Chats.');
+    return;
+  }
+
+  chats = chats.filter((c) => c.id !== chat.id);
+  delete messagesByChat[chat.id];
+
+  if (chats.length > 0) {
+    activeChatId = chats[0].id;
+  } else {
+    activeChatId = null;
+  }
+
+  renderChatList();
+  renderChatInfo();
   renderMessages();
 }
 
@@ -344,7 +451,10 @@ function renderMessages() {
   arr.forEach((msg) => {
     const li = document.createElement('li');
     const isMe = msg.senderId === myUserId;
-    li.classList.add(isMe ? 'msg-me' : 'msg-other', 'msg-text');
+    li.classList.add(isMe ? 'msg-me' : 'msg-other');
+
+    const contentDiv = document.createElement('div');
+    contentDiv.classList.add('msg-content', 'msg-text');
 
     const isImage =
       typeof msg.content === 'string' && msg.content.startsWith('data:image/');
@@ -353,16 +463,25 @@ function renderMessages() {
       const img = document.createElement('img');
       img.src = msg.content;
       img.classList.add('msg-image');
-      li.appendChild(img);
+      contentDiv.appendChild(img);
 
       const caption = document.createElement('div');
-      caption.textContent = '👁️ Bild – einmal tippen, danach gelöscht';
-      li.appendChild(caption);
+      caption.textContent = '👁️ Bild – über ✕ löschen';
+      contentDiv.appendChild(caption);
     } else {
-      li.textContent = `👁️ ${msg.content}`;
+      contentDiv.textContent = `👁️ ${msg.content}`;
     }
 
-    li.addEventListener('click', () => onMessageClicked(msg));
+    const closeBtn = document.createElement('button');
+    closeBtn.classList.add('msg-close');
+    closeBtn.textContent = '✕';
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      onMessageClicked(msg);
+    });
+
+    li.appendChild(contentDiv);
+    li.appendChild(closeBtn);
     messageListUl.appendChild(li);
   });
 
@@ -423,7 +542,23 @@ reloadMessagesBtn.addEventListener('click', async () => {
 });
 
 sendImageBtn.addEventListener('click', async () => {
-  await sendImage();
+  await sendImageFromInput();
+});
+
+cameraBtn.addEventListener('click', async () => {
+  await openCamera();
+});
+
+takePhotoBtn.addEventListener('click', async () => {
+  await takePhoto();
+});
+
+closeCameraBtn.addEventListener('click', () => {
+  closeCamera();
+});
+
+deleteChatBtn.addEventListener('click', async () => {
+  await deleteActiveChat();
 });
 
 // ---------- Init ----------
