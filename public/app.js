@@ -3,8 +3,8 @@
 // - Invite-Link & QR-Code
 // - Chats mit "+" anlegen
 // - automatisches Nachrichten-Polling
-// - Text & Bilder (Album + Kamera ohne Galerie-Speicherung)
-// - 1-View (Klick auf ✕ löscht Nachricht)
+// - Text & Bilder (Album + Kamera im Browser)
+// - 1-View (✕ löscht Nachricht)
 // - Profil/ID-Bereich per + ein-/ausblendbar
 // - Chat-Löschen mit Hinweis "für euch beide"
 
@@ -38,7 +38,7 @@ function saveDisplayNameLocal(name) {
   localStorage.setItem(DISPLAY_NAME_KEY, name);
 }
 
-// userProfiles[userId] = { id, displayName }
+// Profile vom Server
 let userProfiles = {};
 
 // ---------- DOM ----------
@@ -86,21 +86,21 @@ const MESSAGE_POLL_INTERVAL_MS = 4000;
 
 // ---------- Basisanzeige ----------
 
-myIdSpan.textContent = myUserId;
-myShortIdSpan.textContent = myShortId;
+if (myIdSpan) myIdSpan.textContent = myUserId;
+if (myShortIdSpan) myShortIdSpan.textContent = myShortId;
 
 const inviteLink = `${window.location.origin}/#${myUserId}`;
-inviteLinkInput.value = inviteLink;
+if (inviteLinkInput) inviteLinkInput.value = inviteLink;
 
-// QR-Code
-if (window.QRCode) {
+if (window.QRCode && qrcodeCanvas) {
   QRCode.toCanvas(qrcodeCanvas, inviteLink, { width: 200 }, (error) => {
     if (error) console.error(error);
   });
 }
 
-// eigenen Anzeigenamen in Feld setzen
-displayNameInput.value = loadDisplayNameLocal();
+if (displayNameInput) {
+  displayNameInput.value = loadDisplayNameLocal();
+}
 
 // ---------- API Helper ----------
 
@@ -135,7 +135,7 @@ async function apiDelete(path) {
   return res.json();
 }
 
-// ---------- User-Profile vom Server holen ----------
+// ---------- User-Profile ----------
 
 async function refreshUserProfiles() {
   if (!chats.length) return;
@@ -270,14 +270,14 @@ async function sendMessageContent(content) {
   renderMessages();
 }
 
-// Bild aus Album / Dateien senden
+// Bild aus Album
 async function sendImageFromInput() {
   const chat = getActiveChat();
   if (!chat) {
     alert('Bitte zuerst einen Chat auswählen oder anlegen.');
     return;
   }
-  const file = imageInput.files && imageInput.files[0];
+  const file = imageInput && imageInput.files && imageInput.files[0];
   if (!file) {
     alert('Bitte zuerst ein Bild auswählen.');
     return;
@@ -299,8 +299,14 @@ async function sendImageFromInput() {
   reader.readAsDataURL(file);
 }
 
-// Kamera-Foto aufnehmen, ohne in Galerie zu speichern
+// Kamera
+
 async function openCamera() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    alert('Kamera wird von diesem Browser nicht unterstützt.');
+    return;
+  }
+
   try {
     cameraStream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: 'environment' },
@@ -312,8 +318,12 @@ async function openCamera() {
     return;
   }
 
-  cameraVideo.srcObject = cameraStream;
-  cameraModal.classList.remove('hidden');
+  if (cameraVideo) {
+    cameraVideo.srcObject = cameraStream;
+  }
+  if (cameraModal) {
+    cameraModal.classList.remove('hidden');
+  }
 }
 
 function closeCamera() {
@@ -321,36 +331,39 @@ function closeCamera() {
     cameraStream.getTracks().forEach((t) => t.stop());
     cameraStream = null;
   }
-  cameraVideo.srcObject = null;
-  cameraModal.classList.add('hidden');
+  if (cameraVideo) {
+    cameraVideo.srcObject = null;
+  }
+  if (cameraModal) {
+    cameraModal.classList.add('hidden');
+  }
 }
 
 async function takePhoto() {
-  if (!cameraStream) return;
+  if (!cameraStream || !cameraVideo) return;
   const chat = getActiveChat();
   if (!chat) {
     alert('Bitte zuerst einen Chat auswählen oder anlegen.');
     return;
   }
 
-  const video = cameraVideo;
-  if (!video.videoWidth || !video.videoHeight) {
+  if (!cameraVideo.videoWidth || !cameraVideo.videoHeight) {
     alert('Kamera ist noch nicht bereit. Bitte kurz warten und erneut versuchen.');
     return;
   }
 
   const canvas = document.createElement('canvas');
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
+  canvas.width = cameraVideo.videoWidth;
+  canvas.height = cameraVideo.videoHeight;
   const ctx = canvas.getContext('2d');
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  ctx.drawImage(cameraVideo, 0, 0, canvas.width, canvas.height);
 
   const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
   await sendMessageContent(dataUrl);
   closeCamera();
 }
 
-// Nachricht löschen (1-View) – ausgelöst durch ✕
+// Nachricht löschen (✕)
 async function onMessageClicked(msg) {
   const chat = getActiveChat();
   if (!chat) return;
@@ -420,6 +433,7 @@ function getChatDisplayName(chat) {
 }
 
 function renderChatList() {
+  if (!chatListUl) return;
   chatListUl.innerHTML = '';
   chats.forEach((chat) => {
     const li = document.createElement('li');
@@ -433,6 +447,7 @@ function renderChatList() {
 }
 
 function renderChatInfo() {
+  if (!chatInfoDiv) return;
   const chat = getActiveChat();
   if (!chat) {
     chatInfoDiv.textContent = 'Kein Chat ausgewählt.';
@@ -443,6 +458,7 @@ function renderChatInfo() {
 }
 
 function renderMessages() {
+  if (!messageListUl) return;
   const chat = getActiveChat();
   messageListUl.innerHTML = '';
   if (!chat) return;
@@ -490,83 +506,103 @@ function renderMessages() {
 
 // ---------- Events ----------
 
-copyLinkBtn.addEventListener('click', () => {
-  inviteLinkInput.select();
-  document.execCommand('copy');
-  alert('Invite-Link in die Zwischenablage kopiert.');
-});
+if (copyLinkBtn && inviteLinkInput) {
+  copyLinkBtn.addEventListener('click', () => {
+    inviteLinkInput.select();
+    document.execCommand('copy');
+    alert('Invite-Link kopiert.');
+  });
+}
 
-saveDisplayNameBtn.addEventListener('click', async () => {
-  const name = displayNameInput.value.trim();
-  if (!name) {
-    alert('Bitte einen Namen eingeben.');
-    return;
-  }
-  saveDisplayNameLocal(name);
-  try {
-    await apiPost('/api/users/profile', {
-      userId: myUserId,
-      displayName: name,
-    });
-    alert('Anzeigename gespeichert.');
-    await refreshUserProfiles();
-  } catch (e) {
-    console.error(e);
-    alert('Fehler beim Speichern des Namens.');
-  }
-});
+if (saveDisplayNameBtn && displayNameInput) {
+  saveDisplayNameBtn.addEventListener('click', async () => {
+    const name = displayNameInput.value.trim();
+    if (!name) {
+      alert('Bitte einen Namen eingeben.');
+      return;
+    }
+    saveDisplayNameLocal(name);
+    try {
+      await apiPost('/api/users/profile', {
+        userId: myUserId,
+        displayName: name,
+      });
+      alert('Anzeigename gespeichert.');
+      await refreshUserProfiles();
+    } catch (e) {
+      console.error(e);
+      alert('Fehler beim Speichern des Namens.');
+    }
+  });
+}
 
-toggleMetaBtn.addEventListener('click', () => {
-  metaPanel.classList.toggle('hidden');
-});
+if (toggleMetaBtn && metaPanel) {
+  toggleMetaBtn.addEventListener('click', () => {
+    metaPanel.classList.toggle('hidden');
+  });
+}
 
-addChatPlusBtn.addEventListener('click', async () => {
-  const raw = prompt('ID oder Invite-Link der anderen Person eingeben:');
-  const otherId = extractUserIdFromInput(raw || '');
-  if (!otherId) return;
-  await ensureChat(otherId);
-});
+if (addChatPlusBtn) {
+  addChatPlusBtn.addEventListener('click', async () => {
+    const raw = prompt('ID oder Invite-Link der anderen Person eingeben:');
+    const otherId = extractUserIdFromInput(raw || '');
+    if (!otherId) return;
+    await ensureChat(otherId);
+  });
+}
 
-sendBtn.addEventListener('click', async () => {
-  await sendMessage();
-});
-
-messageInput.addEventListener('keydown', async (e) => {
-  if (e.key === 'Enter') {
+if (sendBtn && messageInput) {
+  sendBtn.addEventListener('click', async () => {
     await sendMessage();
-  }
-});
+  });
+  messageInput.addEventListener('keydown', async (e) => {
+    if (e.key === 'Enter') {
+      await sendMessage();
+    }
+  });
+}
 
-reloadMessagesBtn.addEventListener('click', async () => {
-  await loadMessagesForActiveChat();
-});
+if (reloadMessagesBtn) {
+  reloadMessagesBtn.addEventListener('click', async () => {
+    await loadMessagesForActiveChat();
+  });
+}
 
-sendImageBtn.addEventListener('click', async () => {
-  await sendImageFromInput();
-});
+if (sendImageBtn && imageInput) {
+  sendImageBtn.addEventListener('click', async () => {
+    await sendImageFromInput();
+  });
+}
 
-cameraBtn.addEventListener('click', async () => {
-  await openCamera();
-});
+if (cameraBtn) {
+  cameraBtn.addEventListener('click', async () => {
+    await openCamera();
+  });
+}
 
-takePhotoBtn.addEventListener('click', async () => {
-  await takePhoto();
-});
+if (takePhotoBtn) {
+  takePhotoBtn.addEventListener('click', async () => {
+    await takePhoto();
+  });
+}
 
-closeCameraBtn.addEventListener('click', () => {
-  closeCamera();
-});
+if (closeCameraBtn) {
+  closeCameraBtn.addEventListener('click', () => {
+    closeCamera();
+  });
+}
 
-deleteChatBtn.addEventListener('click', async () => {
-  await deleteActiveChat();
-});
+if (deleteChatBtn) {
+  deleteChatBtn.addEventListener('click', async () => {
+    await deleteActiveChat();
+  });
+}
 
 // ---------- Init ----------
 
 (async function init() {
   await loadChats();
 
-  // Hash-Invite: #USERID
   const hash = window.location.hash;
   if (hash.startsWith('#')) {
     const otherId = hash.slice(1);
@@ -577,7 +613,6 @@ deleteChatBtn.addEventListener('click', async () => {
 
   await loadMessagesForActiveChat();
 
-  // Auto-Polling
   setInterval(() => {
     loadMessagesForActiveChat().catch((e) => console.error(e));
   }, MESSAGE_POLL_INTERVAL_MS);
