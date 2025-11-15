@@ -468,6 +468,15 @@ function renderMessages() {
 
   arr.forEach((msg) => {
     const li = document.createElement('li');
+    // Zeitstempel berechnen
+const date = new Date(msg.createdAt || Date.now());
+const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+// Zeit-Element oben einfügen
+const timeEl = document.createElement('span');
+timeEl.classList.add('msg-time');
+timeEl.textContent = timeStr;
+li.appendChild(timeEl);
     const isMe = msg.senderId === myUserId;
     li.classList.add(isMe ? 'msg-me' : 'msg-other');
 
