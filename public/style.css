@@ -163,6 +163,7 @@ button:hover {
 
 /* eigene Nachrichten: rechts, dunkelgrün, weiße Schrift */
 .msg-me {
+  margin-top: time;
   margin-left: auto;
   margin-right: 0;
   background: #064e3b;   /* dunkles Grün */
@@ -171,6 +172,7 @@ button:hover {
 
 /* Nachrichten des Gegenübers: links, wie bisher, aber auch weiß zur Sicherheit */
 .msg-other {
+  margin-top: time;
   margin-right: auto;
   margin-left: 0;
   background: #374151;   /* dunkelgrau / wie vorher */
