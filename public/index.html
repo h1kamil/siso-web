@@ -11,13 +11,47 @@
     <header class="top-header">
       <div>
         <h1>siso</h1>
-        <p class="subtitle">Webchat</p>
+        <p class="subtitle">Webchats</p>
       </div>
       <button id="toggle-meta-btn" title="Profil & ID anzeigen/ausblenden">+</button>
     </header>
 
-    <!-- einklappbarer Block: dein Name + ID + Invite -->
-    <section id="meta-panel">
+    <!-- Chat-Bereich direkt unter dem Header -->
+    <main class="chat-layout">
+      <aside class="chat-list">
+        <div class="chat-list-header">
+          <h2>Chats</h2>
+          <button id="add-chat-plus" title="Neuen Chat starten">+</button>
+        </div>
+        <ul id="chat-list"></ul>
+      </aside>
+
+      <section class="chat-window">
+        <div class="chat-header">
+          <div id="chat-info"></div>
+          <button id="delete-chat-btn">Chat löschen</button>
+        </div>
+        <button id="reload-messages-btn">Neu laden</button>
+        <ul id="message-list"></ul>
+
+        <div class="message-input">
+          <input id="message-input" placeholder="Nachricht eingeben…" />
+          <button id="send-btn">Senden</button>
+        </div>
+
+        <div class="message-input">
+          <!-- Album / Dateien -->
+          <input type="file" id="image-input" accept="image/*" />
+          <!-- Plus-Button für Bild aus Album -->
+          <button id="send-image-btn" title="Bild aus Album senden">+</button>
+          <!-- Kamera-Button (Foto wird NICHT im Album gespeichert, sondern direkt im Browser aufgenommen) -->
+          <button id="camera-btn" title="Foto mit Kamera aufnehmen">📷</button>
+        </div>
+      </section>
+    </main>
+
+    <!-- Einklappbarer Profil/ID-Block (standardmäßig versteckt) -->
+    <section id="meta-panel" class="hidden">
       <section class="profile">
         <h2>Dein Profil</h2>
         <label>
@@ -43,33 +77,16 @@
       </section>
     </section>
 
-    <main class="chat-layout">
-      <aside class="chat-list">
-        <div class="chat-list-header">
-          <h2>Chats</h2>
-          <button id="add-chat-plus" title="Neuen Chat starten">+</button>
+    <!-- Kamera-Overlay für direktes Foto ohne Album -->
+    <div id="camera-modal" class="camera-modal hidden">
+      <div class="camera-inner">
+        <video id="camera-video" autoplay playsinline></video>
+        <div class="camera-controls">
+          <button id="take-photo-btn">Foto aufnehmen</button>
+          <button id="close-camera-btn">Abbrechen</button>
         </div>
-        <ul id="chat-list"></ul>
-      </aside>
-
-      <section class="chat-window">
-        <div class="chat-header">
-          <div id="chat-info"></div>
-        </div>
-        <button id="reload-messages-btn">Neu laden</button>
-        <ul id="message-list"></ul>
-
-        <div class="message-input">
-          <input id="message-input" placeholder="Nachricht eingeben…" />
-          <button id="send-btn">Senden</button>
-        </div>
-
-        <div class="message-input">
-          <input type="file" id="image-input" accept="image/*" />
-          <button id="send-image-btn">Bild senden</button>
-        </div>
-      </section>
-    </main>
+      </div>
+    </div>
   </div>
 
   <script src="app.js"></script>
