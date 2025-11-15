@@ -161,15 +161,22 @@ button:hover {
   border-radius: 6px;
 }
 
+/* eigene Nachrichten: rechts, dunkelgrün, weiße Schrift */
 .msg-me {
   margin-left: auto;
-  background: #2563eb;
+  margin-right: 0;
+  background: #064e3b;   /* dunkles Grün */
+  color: #ffffff;        /* Text immer weiß */
 }
 
+/* Nachrichten des Gegenübers: links, wie bisher, aber auch weiß zur Sicherheit */
 .msg-other {
   margin-right: auto;
-  background: #374151;
+  margin-left: 0;
+  background: #374151;   /* dunkelgrau / wie vorher */
+  color: #ffffff;        /* Text immer weiß */
 }
+
 
 .msg-content {
   flex: 1;
