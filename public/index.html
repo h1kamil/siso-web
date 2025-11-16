@@ -2,16 +2,15 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <title>siso</title>
+  <title>siso – Webchat</title>
   <link rel="stylesheet" href="style.css" />
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 </head>
 <body>
   <div id="app">
     <header class="top-header">
       <div>
         <h1>siso</h1>
-        <p class="Free Trial advertisment</p>
+        <p class="subtitle">1-View-Webchat</p>
       </div>
       <button id="toggle-meta-btn" title="Profil & ID anzeigen/ausblenden">+</button>
     </header>
@@ -42,7 +41,6 @@
         <div class="message-input">
           <input type="file" id="image-input" accept="image/*" />
           <button id="send-image-btn" title="Bild aus Album senden">+</button>
-          <button id="camera-btn" title="Foto mit Kamera aufnehmen">📷</button>
         </div>
       </section>
     </main>
@@ -70,9 +68,6 @@
         <input id="invite-link" readonly />
         <button id="copy-link-btn">Link kopieren</button>
 
-        <h3>QR-Code zum Teilen</h3>
-        <canvas id="qrcode"></canvas>
-
         <hr />
         <h3>Feste ID vergeben / wiederherstellen</h3>
         <p class="info">
@@ -84,17 +79,6 @@
         <button id="set-fixed-id-btn">ID übernehmen</button>
       </section>
     </section>
-
-    <!-- Kamera-Overlay -->
-    <div id="camera-modal" class="camera-modal hidden">
-      <div class="camera-inner">
-        <video id="camera-video" autoplay playsinline></video>
-        <div class="camera-controls">
-          <button id="take-photo-btn">Foto aufnehmen</button>
-          <button id="close-camera-btn">Abbrechen</button>
-        </div>
-      </div>
-    </div>
   </div>
 
   <script src="app.js"></script>
