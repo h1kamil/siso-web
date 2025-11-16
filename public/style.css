@@ -87,7 +87,7 @@ hr {
 }
 
 .hidden {
-  display: none;
+  display: none !important;
 }
 
 /* Chat-Layout */
@@ -215,4 +215,38 @@ hr {
 .message-input input[type="text"],
 .message-input input:not([type]) {
   flex: 1;
+}
+
+/* Kamera-Overlay */
+
+.camera-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 50;
+}
+
+.camera-inner {
+  background: #111;
+  padding: 12px;
+  border-radius: 8px;
+  max-width: 90vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+#camera-video {
+  width: 100%;
+  max-height: 60vh;
+  background: #000;
+}
+
+.camera-controls {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
 }
