@@ -1,14 +1,15 @@
 // app.js
-// - User-ID & Anzeigename (vom Server gelesen)
+// - User-ID & feste ID (übertragbar auf andere Geräte)
+// - Anzeigename (auf Server gespeichert, Gegenüber sieht ihn)
 // - Invite-Link & QR-Code
 // - Chats mit "+" anlegen
-// - automatisches Nachrichten-Polling
-// - Text & Bilder (Album + Kamera im Browser)
-// - 1-View (✕ löscht Nachricht)
+// - automatisches Polling für Nachrichten
+// - Text & Bilder (Album + Kamera)
+// - 1-View: ✕ löscht Nachricht
+// - Chat-Löschen (für beide)
 // - Profil/ID-Bereich per + ein-/ausblendbar
-// - Chat-Löschen mit Hinweis "für euch beide"
 
-// ---------- User-ID & Short-ID ----------
+// ---------- User-ID ----------
 
 function getOrCreateUserId() {
   let id = localStorage.getItem('siso_user_id');
@@ -38,8 +39,7 @@ function saveDisplayNameLocal(name) {
   localStorage.setItem(DISPLAY_NAME_KEY, name);
 }
 
-// Profile vom Server
-let userProfiles = {};
+let userProfiles = {}; // userId -> {id, displayName}
 
 // ---------- DOM ----------
 
@@ -47,6 +47,8 @@ const myIdSpan = document.getElementById('my-id');
 const myShortIdSpan = document.getElementById('my-short-id');
 const inviteLinkInput = document.getElementById('invite-link');
 const copyLinkBtn = document.getElementById('copy-link-btn');
+const fixedIdInput = document.getElementById('fixed-id-input');
+const setFixedIdBtn = document.getElementById('set-fixed-id-btn');
 
 const displayNameInput = document.getElementById('display-name-input');
 const saveDisplayNameBtn = document.getElementById('save-display-name-btn');
@@ -72,10 +74,8 @@ const cameraModal = document.getElementById('camera-modal');
 const cameraVideo = document.getElementById('camera-video');
 const takePhotoBtn = document.getElementById('take-photo-btn');
 const closeCameraBtn = document.getElementById('close-camera-btn');
-const switchCameraBtn = document.getElementById('switch-camera-btn');
 
-
-const qrcodeImg = document.getElementById('qrcode-img');
+const qrcodeCanvas = document.getElementById('qrcode');
 
 // ---------- Zustand ----------
 
@@ -83,29 +83,29 @@ let chats = [];
 let messagesByChat = {};
 let activeChatId = null;
 let cameraStream = null;
-let currentFacingMode = 'environment'; // 'environment' = Rückkamera, 'user' = Frontkamera
 
 const MESSAGE_POLL_INTERVAL_MS = 4000;
 
 // ---------- Basisanzeige ----------
 
-if (myIdSpan) myIdSpan.textContent = myUserId;
-if (myShortIdSpan) myShortIdSpan.textContent = myShortId;
+myIdSpan.textContent = myUserId;
+myShortIdSpan.textContent = myShortId;
 
 const inviteLink = `${window.location.origin}/#${myUserId}`;
-if (inviteLinkInput) inviteLinkInput.value = inviteLink;
+inviteLinkInput.value = inviteLink;
 
-// QR-Code als Bild laden (ohne extra JS-Bibliothek)
-if (qrcodeImg) {
-  qrcodeImg.src =
-    'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' +
-    encodeURIComponent(inviteLink);
+// feste ID-Feld vorbefüllen
+if (fixedIdInput) {
+  fixedIdInput.value = myUserId;
 }
 
-
-if (displayNameInput) {
-  displayNameInput.value = loadDisplayNameLocal();
+if (window.QRCode) {
+  QRCode.toCanvas(qrcodeCanvas, inviteLink, { width: 200 }, (error) => {
+    if (error) console.error(error);
+  });
 }
+
+displayNameInput.value = loadDisplayNameLocal();
 
 // ---------- API Helper ----------
 
@@ -282,7 +282,7 @@ async function sendImageFromInput() {
     alert('Bitte zuerst einen Chat auswählen oder anlegen.');
     return;
   }
-  const file = imageInput && imageInput.files && imageInput.files[0];
+  const file = imageInput.files && imageInput.files[0];
   if (!file) {
     alert('Bitte zuerst ein Bild auswählen.');
     return;
@@ -308,19 +308,12 @@ async function sendImageFromInput() {
 
 async function openCamera() {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    alert('Kamera wird von diesem Browser nicht unterstützt.');
+    alert('Dein Browser unterstützt die Kamera-Funktion hier leider nicht.');
     return;
   }
-
-  // Falls schon ein Stream läuft: erst stoppen
-  if (cameraStream) {
-    cameraStream.getTracks().forEach((t) => t.stop());
-    cameraStream = null;
-  }
-
   try {
     cameraStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: currentFacingMode } },
+      video: { facingMode: 'environment' },
       audio: false,
     });
   } catch (e) {
@@ -329,61 +322,45 @@ async function openCamera() {
     return;
   }
 
-  if (cameraVideo) {
-    cameraVideo.srcObject = cameraStream;
-  }
-  if (cameraModal) {
-    cameraModal.classList.remove('hidden');
-  }
+  cameraVideo.srcObject = cameraStream;
+  cameraModal.classList.remove('hidden');
 }
-
 
 function closeCamera() {
   if (cameraStream) {
     cameraStream.getTracks().forEach((t) => t.stop());
     cameraStream = null;
   }
-  if (cameraVideo) {
-    cameraVideo.srcObject = null;
-  }
-  if (cameraModal) {
-    cameraModal.classList.add('hidden');
-  }
-}
-
-async function switchCamera() {
-  // Modus umschalten
-  currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
-
-  // Kamera mit neuem Modus neu öffnen
-  await openCamera();
+  cameraVideo.srcObject = null;
+  cameraModal.classList.add('hidden');
 }
 
 async function takePhoto() {
-  if (!cameraStream || !cameraVideo) return;
+  if (!cameraStream) return;
   const chat = getActiveChat();
   if (!chat) {
     alert('Bitte zuerst einen Chat auswählen oder anlegen.');
     return;
   }
 
-  if (!cameraVideo.videoWidth || !cameraVideo.videoHeight) {
+  const video = cameraVideo;
+  if (!video.videoWidth || !video.videoHeight) {
     alert('Kamera ist noch nicht bereit. Bitte kurz warten und erneut versuchen.');
     return;
   }
 
   const canvas = document.createElement('canvas');
-  canvas.width = cameraVideo.videoWidth;
-  canvas.height = cameraVideo.videoHeight;
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
   const ctx = canvas.getContext('2d');
-  ctx.drawImage(cameraVideo, 0, 0, canvas.width, canvas.height);
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
   const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
   await sendMessageContent(dataUrl);
   closeCamera();
 }
 
-// Nachricht löschen (✕)
+// Nachricht löschen (1-View)
 async function onMessageClicked(msg) {
   const chat = getActiveChat();
   if (!chat) return;
@@ -401,8 +378,7 @@ async function onMessageClicked(msg) {
   renderMessages();
 }
 
-// ---------- Chat löschen ----------
-
+// Chat löschen
 async function deleteActiveChat() {
   const chat = getActiveChat();
   if (!chat) {
@@ -453,7 +429,6 @@ function getChatDisplayName(chat) {
 }
 
 function renderChatList() {
-  if (!chatListUl) return;
   chatListUl.innerHTML = '';
   chats.forEach((chat) => {
     const li = document.createElement('li');
@@ -467,7 +442,6 @@ function renderChatList() {
 }
 
 function renderChatInfo() {
-  if (!chatInfoDiv) return;
   const chat = getActiveChat();
   if (!chat) {
     chatInfoDiv.textContent = 'Kein Chat ausgewählt.';
@@ -478,7 +452,6 @@ function renderChatInfo() {
 }
 
 function renderMessages() {
-  if (!messageListUl) return;
   const chat = getActiveChat();
   messageListUl.innerHTML = '';
   if (!chat) return;
@@ -486,15 +459,6 @@ function renderMessages() {
 
   arr.forEach((msg) => {
     const li = document.createElement('li');
-    // Zeitstempel berechnen
-const date = new Date(msg.createdAt || Date.now());
-const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-// Zeit-Element oben einfügen
-const timeEl = document.createElement('span');
-timeEl.classList.add('msg-time');
-timeEl.textContent = timeStr;
-li.appendChild(timeEl);
     const isMe = msg.senderId === myUserId;
     li.classList.add(isMe ? 'msg-me' : 'msg-other');
 
@@ -535,103 +499,101 @@ li.appendChild(timeEl);
 
 // ---------- Events ----------
 
-if (copyLinkBtn && inviteLinkInput) {
-  copyLinkBtn.addEventListener('click', () => {
-    inviteLinkInput.select();
-    document.execCommand('copy');
-    alert('Invite-Link kopiert.');
-  });
-}
+copyLinkBtn.addEventListener('click', () => {
+  inviteLinkInput.select();
+  document.execCommand('copy');
+  alert('Invite-Link in die Zwischenablage kopiert.');
+});
 
-if (saveDisplayNameBtn && displayNameInput) {
-  saveDisplayNameBtn.addEventListener('click', async () => {
-    const name = displayNameInput.value.trim();
-    if (!name) {
-      alert('Bitte einen Namen eingeben.');
-      return;
-    }
-    saveDisplayNameLocal(name);
-    try {
-      await apiPost('/api/users/profile', {
-        userId: myUserId,
-        displayName: name,
-      });
-      alert('Anzeigename gespeichert.');
-      await refreshUserProfiles();
-    } catch (e) {
-      console.error(e);
-      alert('Fehler beim Speichern des Namens.');
-    }
-  });
-}
+saveDisplayNameBtn.addEventListener('click', async () => {
+  const name = displayNameInput.value.trim();
+  if (!name) {
+    alert('Bitte einen Namen eingeben.');
+    return;
+  }
+  saveDisplayNameLocal(name);
+  try {
+    await apiPost('/api/users/profile', {
+      userId: myUserId,
+      displayName: name,
+    });
+    alert('Anzeigename gespeichert.');
+    await refreshUserProfiles();
+  } catch (e) {
+    console.error(e);
+    alert('Fehler beim Speichern des Namens.');
+  }
+});
 
-if (toggleMetaBtn && metaPanel) {
-  toggleMetaBtn.addEventListener('click', () => {
-    metaPanel.classList.toggle('hidden');
-  });
-}
+setFixedIdBtn.addEventListener('click', () => {
+  const newId = (fixedIdInput.value || '').trim();
+  if (!newId) {
+    alert('Bitte eine ID eingeben.');
+    return;
+  }
+  if (newId.length < 6 || newId.length > 64) {
+    alert('Die ID sollte zwischen 6 und 64 Zeichen lang sein.');
+    return;
+  }
+  if (!/^[a-zA-Z0-9._-]+$/.test(newId)) {
+    alert('Bitte nur Buchstaben, Zahlen, Punkt, Unterstrich oder Bindestrich verwenden.');
+    return;
+  }
 
-if (addChatPlusBtn) {
-  addChatPlusBtn.addEventListener('click', async () => {
-    const raw = prompt('ID oder Invite-Link der anderen Person eingeben:');
-    const otherId = extractUserIdFromInput(raw || '');
-    if (!otherId) return;
-    await ensureChat(otherId);
-  });
-}
+  const confirmed = confirm(
+    'Wenn du deine ID änderst, gehören bestehende Chats zu deiner alten ID. ' +
+      'Nur mit dieser neuen ID wirst du künftig als derselbe User erkannt. Fortfahren?'
+  );
+  if (!confirmed) return;
 
-if (sendBtn && messageInput) {
-  sendBtn.addEventListener('click', async () => {
+  localStorage.setItem('siso_user_id', newId);
+  window.location.reload();
+});
+
+toggleMetaBtn.addEventListener('click', () => {
+  metaPanel.classList.toggle('hidden');
+});
+
+addChatPlusBtn.addEventListener('click', async () => {
+  const raw = prompt('ID oder Invite-Link der anderen Person eingeben:');
+  const otherId = extractUserIdFromInput(raw || '');
+  if (!otherId) return;
+  await ensureChat(otherId);
+});
+
+sendBtn.addEventListener('click', async () => {
+  await sendMessage();
+});
+
+messageInput.addEventListener('keydown', async (e) => {
+  if (e.key === 'Enter') {
     await sendMessage();
-  });
-  messageInput.addEventListener('keydown', async (e) => {
-    if (e.key === 'Enter') {
-      await sendMessage();
-    }
-  });
-}
+  }
+});
 
-if (reloadMessagesBtn) {
-  reloadMessagesBtn.addEventListener('click', async () => {
-    await loadMessagesForActiveChat();
-  });
-}
+reloadMessagesBtn.addEventListener('click', async () => {
+  await loadMessagesForActiveChat();
+});
 
-if (sendImageBtn && imageInput) {
-  sendImageBtn.addEventListener('click', async () => {
-    await sendImageFromInput();
-  });
-}
+sendImageBtn.addEventListener('click', async () => {
+  await sendImageFromInput();
+});
 
-if (cameraBtn) {
-  cameraBtn.addEventListener('click', async () => {
-    await openCamera();
-  });
-}
+cameraBtn.addEventListener('click', async () => {
+  await openCamera();
+});
 
-if (takePhotoBtn) {
-  takePhotoBtn.addEventListener('click', async () => {
-    await takePhoto();
-  });
-}
+takePhotoBtn.addEventListener('click', async () => {
+  await takePhoto();
+});
 
-if (closeCameraBtn) {
-  closeCameraBtn.addEventListener('click', () => {
-    closeCamera();
-  });
-}
+closeCameraBtn.addEventListener('click', () => {
+  closeCamera();
+});
 
-if (switchCameraBtn) {
-  switchCameraBtn.addEventListener('click', async () => {
-    await switchCamera();
-  });
-}
-
-if (deleteChatBtn) {
-  deleteChatBtn.addEventListener('click', async () => {
-    await deleteActiveChat();
-  });
-}
+deleteChatBtn.addEventListener('click', async () => {
+  await deleteActiveChat();
+});
 
 // ---------- Init ----------
 
