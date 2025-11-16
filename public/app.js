@@ -1,9 +1,9 @@
-// app.js – vereinfachte, robuste Version ohne Kamera/QR
+// app.js
 // - User-ID & feste ID
-// - Anzeigename (Server-seitig gespeichert)
+// - Anzeigename (Server)
 // - Invite-Link
 // - Chats mit "+"
-// - Nachrichten + Bilder (Album)
+// - Nachrichten & Bilder (Album + Kamera)
 // - 1-View: ✕ löscht Nachricht
 // - Chat löschen (für beide)
 // - Profil-Bereich ein-/ausblendbar
@@ -74,12 +74,19 @@ const sendBtn = document.getElementById("send-btn");
 
 const imageInput = document.getElementById("image-input");
 const sendImageBtn = document.getElementById("send-image-btn");
+const cameraBtn = document.getElementById("camera-btn");
+
+const cameraModal = document.getElementById("camera-modal");
+const cameraVideo = document.getElementById("camera-video");
+const takePhotoBtn = document.getElementById("take-photo-btn");
+const closeCameraBtn = document.getElementById("close-camera-btn");
 
 // ---------- Zustand ----------
 
 let chats = [];
 let messagesByChat = {};
 let activeChatId = null;
+let cameraStream = null;
 
 const MESSAGE_POLL_INTERVAL_MS = 4000;
 
@@ -299,6 +306,64 @@ async function sendImageFromInput() {
     }
   };
   reader.readAsDataURL(file);
+}
+
+// Kamera
+
+async function openCamera() {
+  if (!cameraModal || !cameraVideo) return;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    alert("Dein Browser unterstützt die Kamera-Funktion hier leider nicht.");
+    return;
+  }
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment" },
+      audio: false,
+    });
+  } catch (e) {
+    console.error(e);
+    alert("Kamera konnte nicht geöffnet werden (Berechtigungen prüfen).");
+    return;
+  }
+
+  cameraVideo.srcObject = cameraStream;
+  cameraModal.classList.remove("hidden");
+}
+
+function closeCamera() {
+  if (cameraStream) {
+    cameraStream.getTracks().forEach((t) => t.stop());
+    cameraStream = null;
+  }
+  if (cameraVideo) cameraVideo.srcObject = null;
+  if (cameraModal) cameraModal.classList.add("hidden");
+}
+
+async function takePhoto() {
+  if (!cameraStream) return;
+  const chat = getActiveChat();
+  if (!chat) {
+    alert("Bitte zuerst einen Chat auswählen oder anlegen.");
+    return;
+  }
+  if (!cameraVideo) return;
+
+  const video = cameraVideo;
+  if (!video.videoWidth || !video.videoHeight) {
+    alert("Kamera ist noch nicht bereit. Bitte kurz warten und erneut versuchen.");
+    return;
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+  await sendMessageContent(dataUrl);
+  closeCamera();
 }
 
 // Nachricht löschen (1-View)
@@ -543,6 +608,24 @@ if (reloadMessagesBtn) {
 if (sendImageBtn) {
   sendImageBtn.addEventListener("click", async () => {
     await sendImageFromInput();
+  });
+}
+
+if (cameraBtn) {
+  cameraBtn.addEventListener("click", async () => {
+    await openCamera();
+  });
+}
+
+if (takePhotoBtn) {
+  takePhotoBtn.addEventListener("click", async () => {
+    await takePhoto();
+  });
+}
+
+if (closeCameraBtn) {
+  closeCameraBtn.addEventListener("click", () => {
+    closeCamera();
   });
 }
 
