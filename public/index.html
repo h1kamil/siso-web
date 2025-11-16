@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <title>siso</title>
   <link rel="stylesheet" href="style.css" />
-  
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 </head>
 <body>
@@ -12,12 +11,12 @@
     <header class="top-header">
       <div>
         <h1>siso</h1>
-        <p class="subtitle">free trial advertisment</p>
+        <p class="Free Trial advertisment</p>
       </div>
       <button id="toggle-meta-btn" title="Profil & ID anzeigen/ausblenden">+</button>
     </header>
 
-    <!-- Chat-Bereich direkt unter dem Header -->
+    <!-- Chat-Bereich -->
     <main class="chat-layout">
       <aside class="chat-list">
         <div class="chat-list-header">
@@ -48,7 +47,7 @@
       </section>
     </main>
 
-    <!-- Einklappbarer Profil/ID-Block (standardmäßig versteckt) -->
+    <!-- Profil/ID unten, standardmäßig versteckt -->
     <section id="meta-panel" class="hidden">
       <section class="profile">
         <h2>Dein Profil</h2>
@@ -62,25 +61,35 @@
         </p>
       </section>
 
-  <section class="identity">
-  <h2>Deine siso-ID</h2>
-  <p><strong>ID (intern):</strong> <span id="my-id"></span></p>
-  <p><strong>Kurz-ID:</strong> <span id="my-short-id"></span></p>
-  <p><strong>Invite-Link:</strong></p>
-  <input id="invite-link" readonly />
-  <button id="copy-link-btn">Link kopieren</button>
+      <section class="identity">
+        <h2>Deine siso-ID</h2>
+        <p><strong>ID (intern):</strong> <span id="my-id"></span></p>
+        <p><strong>Kurz-ID:</strong> <span id="my-short-id"></span></p>
 
-<h3>QR-Code zum Teilen</h3>
-<img id="qrcode-img" alt="QR-Code" />
+        <p><strong>Invite-Link:</strong></p>
+        <input id="invite-link" readonly />
+        <button id="copy-link-btn">Link kopieren</button>
+
+        <h3>QR-Code zum Teilen</h3>
+        <canvas id="qrcode"></canvas>
+
+        <hr />
+        <h3>Feste ID vergeben / wiederherstellen</h3>
+        <p class="info">
+          Wenn du hier eine eigene ID einträgst (z.&nbsp;B. <code>mein-geheimer-code-123</code>) und
+          auf „ID übernehmen“ klickst, benutzt dein Gerät diese ID dauerhaft.<br />
+          Auf einem anderen Gerät kannst du dieselbe ID eintragen, um wieder derselbe User zu sein.
+        </p>
+        <input id="fixed-id-input" placeholder="z.B. geheim-12345" />
+        <button id="set-fixed-id-btn">ID übernehmen</button>
       </section>
     </section>
 
     <!-- Kamera-Overlay -->
+    <div id="camera-modal" class="camera-modal hidden">
+      <div class="camera-inner">
+        <video id="camera-video" autoplay playsinline></video>
         <div class="camera-controls">
-        <button id="switch-camera-btn" title="Kamera wechseln">🔁</button>
-        <button id="take-photo-btn">Foto aufnehmen</button>
-        <button id="close-camera-btn">Abbrechen</button>
-        </div>
           <button id="take-photo-btn">Foto aufnehmen</button>
           <button id="close-camera-btn">Abbrechen</button>
         </div>
