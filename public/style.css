@@ -11,7 +11,8 @@ body {
   padding: 16px;
 }
 
-/* Header oben mit Toggle-Button */
+/* Header */
+
 .top-header {
   display: flex;
   justify-content: space-between;
@@ -79,7 +80,12 @@ button:hover {
   color: #aaa;
 }
 
-/* Einklappbar */
+hr {
+  border: none;
+  border-top: 1px solid #333;
+  margin: 12px 0;
+}
+
 .hidden {
   display: none;
 }
@@ -141,7 +147,7 @@ button:hover {
   background: #3b82f6;
 }
 
-/* Nachrichtenliste mit X */
+/* Nachrichten mit X rechts */
 
 #message-list {
   list-style: none;
@@ -161,22 +167,15 @@ button:hover {
   border-radius: 6px;
 }
 
-/* eigene Nachrichten: rechts, dunkelgrün, weiße Schrift */
 .msg-me {
   margin-left: auto;
-  margin-right: 0;
-  background: #064e3b;   /* dunkles Grün */
-  color: #ffffff;        /* Text immer weiß */
+  background: #2563eb;
 }
 
-/* Nachrichten des Gegenübers: links, wie bisher, aber auch weiß zur Sicherheit */
 .msg-other {
   margin-right: auto;
-  margin-left: 0;
-  background: #374151;   /* dunkelgrau / wie vorher */
-  color: #ffffff;        /* Text immer weiß */
+  background: #374151;
 }
-
 
 .msg-content {
   flex: 1;
@@ -218,13 +217,6 @@ button:hover {
   flex: 1;
 }
 
-.msg-time {
-  font-size: 0.75rem;
-  color: #ccc;
-  margin-bottom: 3px;
-  display: block;
-}
-
 /* Kamera-Overlay */
 
 .camera-modal {
@@ -235,11 +227,6 @@ button:hover {
   justify-content: center;
   align-items: center;
   z-index: 50;
-}
-
-/* Wichtig: wenn .hidden zusätzlich gesetzt ist, wirklich ausblenden */
-.camera-modal.hidden {
-  display: none !important;
 }
 
 .camera-inner {
