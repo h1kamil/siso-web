@@ -292,7 +292,7 @@ async function sendImageFromInput() {
     return;
   }
 
-  if (file.size > 2 * 1024 * 1024) {
+  if (file.size > 10 * 1024 * 1024) {
     alert("Bild ist zu groß (max. ca. 2MB).");
     return;
   }
