@@ -10,7 +10,7 @@
     <header class="top-header">
       <div>
         <h1>siso</h1>
-        <p class="subtitle">Free Trial Advertisment</p>
+        <p class="subtitle">Free Trial Advertisement</p>
       </div>
       <button id="toggle-meta-btn" title="Profil & ID anzeigen/ausblenden">+</button>
     </header>
@@ -41,6 +41,7 @@
         <div class="message-input">
           <input type="file" id="image-input" accept="image/*" />
           <button id="send-image-btn" title="Bild aus Album senden">+</button>
+          <button id="camera-btn" title="Foto mit Kamera aufnehmen">📷</button>
         </div>
       </section>
     </main>
@@ -79,6 +80,17 @@
         <button id="set-fixed-id-btn">ID übernehmen</button>
       </section>
     </section>
+
+    <!-- Kamera-Overlay -->
+    <div id="camera-modal" class="camera-modal hidden">
+      <div class="camera-inner">
+        <video id="camera-video" autoplay playsinline></video>
+        <div class="camera-controls">
+          <button id="take-photo-btn">Foto aufnehmen</button>
+          <button id="close-camera-btn">Abbrechen</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="app.js"></script>
