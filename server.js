@@ -1,11 +1,10 @@
 // server.js
-// Backend für siso auf Render
-// - liefert die Web-App aus (index.html, app.js, style.css)
-// - speichert Chats & Nachrichten in SQLite
-// - verschlüsselt Nachrichten
-// - löscht Nachrichten nach dem ersten "View"
-// - speichert User-Anzeigenamen (damit andere sie sehen)
-// - erlaubt das Löschen eines Chats inkl. aller Nachrichten
+// - Webserver (Express)
+// - SQLite-DB: users, chats, messages
+// - Verschlüsselung (AES-256-GCM)
+// - 1-View-Messages
+// - User-Anzeigenamen
+// - Chats löschen
 
 const express = require('express');
 const path = require('path');
@@ -18,7 +17,7 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ---------- Datenbank ----------
+// ---------- DB ----------
 
 const db = new sqlite3.Database(path.join(__dirname, 'siso.db'));
 
@@ -58,7 +57,7 @@ db.serialize(() => {
 
 const SECRET_KEY = crypto
   .createHash('sha256')
-  .update('siso-super-secret-key') // in echt: ENV-Variable
+  .update('siso-super-secret-key')
   .digest(); // 32 Byte
 
 function encrypt(plaintext) {
@@ -84,8 +83,9 @@ function decrypt(ciphertext, ivBase64, authTagBase64) {
   return decrypted;
 }
 
-// ---------- User-Profile (Anzeigenamen) ----------
+// ---------- User-Profile ----------
 
+// Name setzen/ändern
 app.post('/api/users/profile', (req, res) => {
   const { userId, displayName } = req.body;
   if (!userId || typeof displayName !== 'string') {
@@ -117,6 +117,7 @@ app.post('/api/users/profile', (req, res) => {
   );
 });
 
+// Namen mehrerer User holen
 app.get('/api/users', (req, res) => {
   const idsParam = req.query.ids;
   if (!idsParam) {
