@@ -2,15 +2,16 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <title>siso</title>
+  <title>siso – Webchat</title>
   <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 </head>
 <body>
   <div id="app">
     <header class="top-header">
       <div>
         <h1>siso</h1>
-        <p class="subtitle">Free Trial Advertisement</p>
+        <p class="subtitle">1-View-Webchat</p>
       </div>
       <button id="toggle-meta-btn" title="Profil & ID anzeigen/ausblenden">+</button>
     </header>
@@ -40,13 +41,13 @@
 
         <div class="message-input">
           <input type="file" id="image-input" accept="image/*" />
-          <button id="send-image-btn" title="Bild aus Album senden">></button>
+          <button id="send-image-btn" title="Bild aus Album senden">+</button>
           <button id="camera-btn" title="Foto mit Kamera aufnehmen">📷</button>
         </div>
       </section>
     </main>
 
-    <!-- Profil/ID unten, standardmäßig versteckt -->
+    <!-- Profil/ID + Admin-Dashboard unten, standardmäßig versteckt -->
     <section id="meta-panel" class="hidden">
       <section class="profile">
         <h2>Dein Profil</h2>
@@ -69,6 +70,9 @@
         <input id="invite-link" readonly />
         <button id="copy-link-btn">Link kopieren</button>
 
+        <h3>QR-Code zum Teilen</h3>
+        <canvas id="qrcode"></canvas>
+
         <hr />
         <h3>Feste ID vergeben / wiederherstellen</h3>
         <p class="info">
@@ -78,6 +82,26 @@
         </p>
         <input id="fixed-id-input" placeholder="z.B. geheim-12345" />
         <button id="set-fixed-id-btn">ID übernehmen</button>
+      </section>
+
+      <!-- Admin-Dashboard (nur mit Admin-Code nutzbar) -->
+      <section class="identity">
+        <h2>Admin-Dashboard</h2>
+        <p class="info">
+          Nur wer den Admin-Code kennt, kann die Zahlen laden. Normale User sehen hier nichts
+          Sinnvolles.
+        </p>
+        <input id="admin-code-input" placeholder="Admin-Code eingeben" />
+        <button id="load-dashboard-btn">Dashboard laden</button>
+
+        <div id="dashboard" class="dashboard">
+          <p>Registrierte User insgesamt: <strong id="dash-user-count">–</strong></p>
+          <p>Chats insgesamt: <strong id="dash-chat-count">–</strong></p>
+          <p>Nachrichten insgesamt: <strong id="dash-message-count">–</strong></p>
+          <p>Nachrichten letzte 24h: <strong id="dash-msg-24h">–</strong></p>
+          <p>Nachrichten letzte 7 Tage: <strong id="dash-msg-7d">–</strong></p>
+          <p>Deine gesendeten Nachrichten: <strong id="dash-my-messages">–</strong></p>
+        </div>
       </section>
     </section>
 
