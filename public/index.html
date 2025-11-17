@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <title>siso</title>
+  <title>siso – Webchat</title>
   <link rel="stylesheet" href="style.css" />
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 </head>
@@ -11,7 +11,7 @@
     <header class="top-header">
       <div>
         <h1>siso</h1>
-        <p class="subtitle">Free Trial Advertisement</p>
+        <p class="subtitle">1-View-Webchat</p>
       </div>
       <button id="toggle-meta-btn" title="Profil & ID anzeigen/ausblenden">+</button>
     </header>
@@ -43,6 +43,17 @@
           <input type="file" id="image-input" accept="image/*" />
           <button id="send-image-btn" title="Bild aus Album senden">+</button>
           <button id="camera-btn" title="Foto mit Kamera aufnehmen">📷</button>
+        </div>
+
+        <!-- Kamera-Block direkt unter dem Chat, standardmäßig VERSTECKT -->
+        <div id="camera-modal" class="camera-modal hidden">
+          <div class="camera-inner">
+            <video id="camera-video" autoplay playsinline></video>
+            <div class="camera-controls">
+              <button id="take-photo-btn">Foto aufnehmen</button>
+              <button id="close-camera-btn">Abbrechen</button>
+            </div>
+          </div>
         </div>
       </section>
     </main>
@@ -104,17 +115,6 @@
         </div>
       </section>
     </section>
-
-    <!-- Kamera-Overlay -->
-    <div id="camera-modal" class="camera-modal hidden">
-      <div class="camera-inner">
-        <video id="camera-video" autoplay playsinline></video>
-        <div class="camera-controls">
-          <button id="take-photo-btn">Foto aufnehmen</button>
-          <button id="close-camera-btn">Abbrechen</button>
-        </div>
-      </div>
-    </div>
   </div>
 
   <script src="app.js"></script>
