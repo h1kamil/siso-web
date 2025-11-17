@@ -86,8 +86,9 @@ hr {
   margin: 12px 0;
 }
 
+/* WICHTIG: hidden = komplett unsichtbar */
 .hidden {
-  display: none;
+  display: none !important;
 }
 
 /* Chat-Layout */
@@ -217,31 +218,25 @@ hr {
   flex: 1;
 }
 
-/* Kamera-Overlay */
+/* Kamera-Bereich (kein Overlay, einfach unter dem Chat) */
 
 .camera-modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.8);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 50;
+  margin-top: 8px;
 }
 
 .camera-inner {
   background: #111;
   padding: 12px;
   border-radius: 8px;
-  max-width: 90vw;
-  max-height: 80vh;
+  max-width: 100%;
+  max-height: 60vh;
   display: flex;
   flex-direction: column;
 }
 
 #camera-video {
   width: 100%;
-  max-height: 60vh;
+  max-height: 50vh;
   background: #000;
 }
 
