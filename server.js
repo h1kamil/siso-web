@@ -5,6 +5,7 @@
 // - 1-View-Messages
 // - User-Anzeigenamen
 // - Chats löschen
+// - Admin-Dashboard (/api/admin/stats mit Admin-Code)
 
 const express = require('express');
 const path = require('path');
@@ -345,6 +346,101 @@ app.post('/api/messages/:id/view', (req, res) => {
       res.json({ ok: true });
     }
   );
+});
+
+// ---------- Admin-Dashboard ----------
+// POST /api/admin/stats
+// Body: { adminCode, userId }
+// Admin-Code wird mit ENV ADMIN_CODE verglichen (oder Default 'changeme-admin').
+// Antwort: diverse aggregierte Zahlen, aber KEINE Inhalte.
+
+app.post('/api/admin/stats', (req, res) => {
+  const { adminCode, userId } = req.body || {};
+  const expected = process.env.ADMIN_CODE || 'changeme-admin';
+
+  if (!adminCode || adminCode !== expected) {
+    return res.status(403).json({ error: 'Nicht berechtigt (Admin-Code falsch)' });
+  }
+
+  const now = Date.now();
+  const oneDayAgo = now - 24 * 60 * 60 * 1000;
+  const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+
+  db.get(`SELECT COUNT(*) AS cnt FROM users`, (err1, rowUsers) => {
+    if (err1) {
+      console.error(err1);
+      return res.status(500).json({ error: 'Fehler bei User-Statistik' });
+    }
+
+    db.get(`SELECT COUNT(*) AS cnt FROM chats`, (err2, rowChats) => {
+      if (err2) {
+        console.error(err2);
+        return res.status(500).json({ error: 'Fehler bei Chat-Statistik' });
+      }
+
+      db.get(`SELECT COUNT(*) AS cnt FROM messages`, (err3, rowMessages) => {
+        if (err3) {
+          console.error(err3);
+          return res.status(500).json({ error: 'Fehler bei Nachrichten-Statistik' });
+        }
+
+        db.get(
+          `SELECT COUNT(*) AS cnt FROM messages WHERE createdAt >= ?`,
+          [oneDayAgo],
+          (err4, row24h) => {
+            if (err4) {
+              console.error(err4);
+              return res.status(500).json({ error: 'Fehler bei 24h-Statistik' });
+            }
+
+            db.get(
+              `SELECT COUNT(*) AS cnt FROM messages WHERE createdAt >= ?`,
+              [sevenDaysAgo],
+              (err5, row7d) => {
+                if (err5) {
+                  console.error(err5);
+                  return res.status(500).json({ error: 'Fehler bei 7-Tage-Statistik' });
+                }
+
+                if (!userId) {
+                  return res.json({
+                    userCount: rowUsers.cnt,
+                    chatCount: rowChats.cnt,
+                    messageCount: rowMessages.cnt,
+                    messagesLast24h: row24h.cnt,
+                    messagesLast7d: row7d.cnt,
+                    mySentMessages: null,
+                  });
+                }
+
+                db.get(
+                  `SELECT COUNT(*) AS cnt FROM messages WHERE senderId = ?`,
+                  [userId],
+                  (err6, rowMyMsgs) => {
+                    if (err6) {
+                      console.error(err6);
+                      return res
+                        .status(500)
+                        .json({ error: 'Fehler bei persönlichen Nachrichten-Statistik' });
+                    }
+
+                    res.json({
+                      userCount: rowUsers.cnt,
+                      chatCount: rowChats.cnt,
+                      messageCount: rowMessages.cnt,
+                      messagesLast24h: row24h.cnt,
+                      messagesLast7d: row7d.cnt,
+                      mySentMessages: rowMyMsgs.cnt,
+                    });
+                  }
+                );
+              }
+            );
+          }
+        );
+      });
+    });
+  });
 });
 
 // ---------- Server ----------
