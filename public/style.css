@@ -87,7 +87,7 @@ hr {
 }
 
 .hidden {
-  display: none !important;
+  display: none;
 }
 
 /* Chat-Layout */
@@ -249,4 +249,15 @@ hr {
   display: flex;
   justify-content: space-between;
   margin-top: 8px;
+}
+
+/* Admin-Dashboard */
+
+.dashboard {
+  margin-top: 8px;
+  font-size: 0.95rem;
+}
+
+.dashboard p {
+  margin: 4px 0;
 }
