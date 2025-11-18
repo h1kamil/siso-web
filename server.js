@@ -6,6 +6,7 @@
 // - User-Anzeigenamen
 // - Chats löschen
 // - Admin-Dashboard (/api/admin/stats mit Admin-Code)
+// - Namenssuche (/api/users/find) – case-insensitive, Teilstrings
 
 const express = require('express');
 const path = require('path');
@@ -118,7 +119,7 @@ app.post('/api/users/profile', (req, res) => {
   );
 });
 
-// Namen mehrerer User holen
+// Namen mehrerer User holen (für Chat-Liste etc.)
 app.get('/api/users', (req, res) => {
   const idsParam = req.query.ids;
   if (!idsParam) {
@@ -141,6 +142,36 @@ app.get('/api/users', (req, res) => {
       if (err) {
         console.error(err);
         return res.status(500).json({ error: 'Fehler beim Laden der Benutzerprofile' });
+      }
+      res.json(rows);
+    }
+  );
+});
+
+// Namenssuche (case-insensitive, Teilstrings)
+// GET /api/users/find?q=User
+// -> [{ id, displayName }]
+app.get('/api/users/find', (req, res) => {
+  const q = (req.query.q || '').trim();
+  if (!q) {
+    return res.status(400).json({ error: 'q-Parameter erforderlich' });
+  }
+
+  const like = `%${q.toLowerCase()}%`;
+
+  db.all(
+    `
+    SELECT id, displayName
+    FROM users
+    WHERE LOWER(displayName) LIKE ?
+    ORDER BY updatedAt DESC
+    LIMIT 10
+  `,
+    [like],
+    (err, rows) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: 'Fehler bei der Namenssuche' });
       }
       res.json(rows);
     }
@@ -351,8 +382,6 @@ app.post('/api/messages/:id/view', (req, res) => {
 // ---------- Admin-Dashboard ----------
 // POST /api/admin/stats
 // Body: { adminCode, userId }
-// Admin-Code wird mit ENV ADMIN_CODE verglichen (oder Default 'changeme-admin').
-// Antwort: diverse aggregierte Zahlen, aber KEINE Inhalte.
 
 app.post('/api/admin/stats', (req, res) => {
   const { adminCode, userId } = req.body || {};
@@ -419,9 +448,9 @@ app.post('/api/admin/stats', (req, res) => {
                   (err6, rowMyMsgs) => {
                     if (err6) {
                       console.error(err6);
-                      return res
-                        .status(500)
-                        .json({ error: 'Fehler bei persönlichen Nachrichten-Statistik' });
+                      return res.status(500).json({
+                        error: 'Fehler bei persönlichen Nachrichten-Statistik',
+                      });
                     }
 
                     res.json({
