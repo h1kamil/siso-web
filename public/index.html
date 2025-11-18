@@ -7,114 +7,84 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 </head>
 <body>
-  <div id="app">
-    <header class="top-header">
-      <div>
-        <h1>siso</h1>
-        <p class="subtitle">1-View-Webchat</p>
-      </div>
-      <button id="toggle-meta-btn" title="Profil & ID anzeigen/ausblenden">+</button>
+  <div class="app-container">
+    <header class="app-header">
+      <h1>siso</h1>
+      <span>Webchat</span>
     </header>
 
-    <!-- Chat-Bereich -->
-    <main class="chat-layout">
-      <aside class="chat-list">
-        <div class="chat-list-header">
+    <main class="app-main">
+      <aside class="sidebar">
+        <button id="toggle-meta-btn" class="btn small">+ Profil / ID</button>
+
+        <section id="meta-panel" class="meta-panel">
+          <h2>Dein Profil</h2>
+          <label>
+            Dein Anzeigename:
+            <input id="display-name-input" type="text" placeholder="z.B. Alex, Lina..." />
+          </label>
+          <button id="save-display-name-btn" class="btn">Speichern</button>
+          <p class="hint">
+            Dieser Name wird dir in der App angezeigt. Er ersetzt die kryptische User-ID nur für dich.
+          </p>
+
+          <h2>Deine siso-ID</h2>
+          <p><strong>ID (intern):</strong> <span id="my-id"></span></p>
+          <p><strong>Kurz-ID:</strong> <span id="my-short-id"></span></p>
+
+          <p><strong>Invite-Link:</strong></p>
+          <input id="invite-link" type="text" readonly />
+          <button id="copy-link-btn" class="btn small">Link kopieren</button>
+
+          <p><strong>Feste ID setzen (optional)</strong></p>
+          <input id="fixed-id-input" type="text" />
+          <button id="set-fixed-id-btn" class="btn small">ID übernehmen</button>
+
+          <p><strong>QR-Code zum Teilen</strong></p>
+          <canvas id="qrcode"></canvas>
+        </section>
+
+        <div class="chatlist-header">
           <h2>Chats</h2>
-          <button id="add-chat-plus" title="Neuen Chat starten">+</button>
+          <button id="add-chat-plus" class="btn circle">+</button>
         </div>
-        <ul id="chat-list"></ul>
+        <ul id="chat-list" class="chat-list"></ul>
       </aside>
 
-      <section class="chat-window">
-        <div class="chat-header">
-          <div id="chat-info"></div>
-          <button id="delete-chat-btn">Chat löschen</button>
-        </div>
-        <button id="reload-messages-btn">Neu laden</button>
-        <ul id="message-list"></ul>
+      <section class="chat-area">
+        <header class="chat-header">
+          <div id="chat-info">Kein Chat ausgewählt.</div>
+          <button id="delete-chat-btn" class="btn danger small">Chat löschen</button>
+        </header>
 
-        <div class="message-input">
-          <input id="message-input" placeholder="Nachricht eingeben…" />
-          <button id="send-btn">Senden</button>
-        </div>
+        <button id="reload-messages-btn" class="btn fullwidth">Neu laden</button>
 
-        <div class="message-input">
-          <input type="file" id="image-input" accept="image/*" />
-          <button id="send-image-btn" title="Bild aus Album senden">+</button>
-          <button id="camera-btn" title="Foto mit Kamera aufnehmen">📷</button>
-        </div>
+        <ul id="message-list" class="message-list"></ul>
 
-        <!-- Kamera-Block direkt unter dem Chat, standardmäßig VERSTECKT -->
-        <div id="camera-modal" class="camera-modal hidden">
-          <div class="camera-inner">
-            <video id="camera-video" autoplay playsinline></video>
-            <div class="camera-controls">
-              <button id="take-photo-btn">Foto aufnehmen</button>
-              <button id="close-camera-btn">Abbrechen</button>
-            </div>
+        <footer class="chat-footer">
+          <div class="input-row">
+            <input id="message-input" type="text" placeholder="Nachricht eingeben..." />
+            <button id="send-btn" class="btn">Senden</button>
           </div>
-        </div>
+          <div class="input-row">
+            <input id="image-input" type="file" accept="image/*" />
+            <button id="send-image-btn" class="btn small">+</button>
+            <button id="camera-btn" class="btn small">📷</button>
+          </div>
+        </footer>
       </section>
     </main>
+  </div>
 
-    <!-- Profil/ID + Admin-Dashboard unten, standardmäßig versteckt -->
-    <section id="meta-panel" class="hidden">
-      <section class="profile">
-        <h2>Dein Profil</h2>
-        <label>
-          Dein Anzeigename:
-          <input id="display-name-input" placeholder="z.B. Alex, Lina..." />
-        </label>
-        <button id="save-display-name-btn">Speichern</button>
-        <p class="info">
-          Dieser Name wird anderen angezeigt. Du kannst den Namen anderer nicht ändern.
-        </p>
-      </section>
-
-      <section class="identity">
-        <h2>Deine siso-ID</h2>
-        <p><strong>ID (intern):</strong> <span id="my-id"></span></p>
-        <p><strong>Kurz-ID:</strong> <span id="my-short-id"></span></p>
-
-        <p><strong>Invite-Link:</strong></p>
-        <input id="invite-link" readonly />
-        <button id="copy-link-btn">Link kopieren</button>
-
-        <h3>QR-Code zum Teilen</h3>
-        <canvas id="qrcode"></canvas>
-
-        <hr />
-        <h3>Feste ID vergeben / wiederherstellen</h3>
-        <p class="info">
-          Wenn du hier eine eigene ID einträgst (z.&nbsp;B. <code>mein-geheimer-code-123</code>) und
-          auf „ID übernehmen“ klickst, benutzt dein Gerät diese ID dauerhaft.<br />
-          Auf einem anderen Gerät kannst du dieselbe ID eintragen, um wieder derselbe User zu sein.
-        </p>
-        <input id="fixed-id-input" placeholder="z.B. geheim-12345" />
-        <button id="set-fixed-id-btn">ID übernehmen</button>
-      </section>
-
-      <!-- Admin-Dashboard (nur mit Admin-Code nutzbar) -->
-      <section class="identity">
-        <h2>Admin-Dashboard</h2>
-        <p class="info">
-          Nur wer den Admin-Code kennt, kann die Zahlen laden. Normale User sehen hier nichts
-          Sinnvolles.
-        </p>
-        <input id="admin-code-input" placeholder="Admin-Code eingeben" />
-        <button id="load-dashboard-btn">Dashboard laden</button>
-
-        <div id="dashboard" class="dashboard">
-          <p>Registrierte User insgesamt: <strong id="dash-user-count">–</strong></p>
-          <p>Chats insgesamt: <strong id="dash-chat-count">–</strong></p>
-          <p>Nachrichten insgesamt: <strong id="dash-message-count">–</strong></p>
-          <p>Nachrichten letzte 24h: <strong id="dash-msg-24h">–</strong></p>
-          <p>Nachrichten letzte 7 Tage: <strong id="dash-msg-7d">–</strong></p>
-          <p>Deine gesendeten Nachrichten: <strong id="dash-my-messages">–</strong></p>
-        </div>
-      </section>
-    </section>
+  <!-- Kamera-Modal -->
+  <div id="camera-modal" class="camera-modal hidden">
+    <div class="camera-content">
+      <video id="camera-video" autoplay playsinline></video>
+      <div class="camera-buttons">
+        <button id="take-photo-btn" class="btn">Foto aufnehmen</button>
+        <button id="close-camera-btn" class="btn danger">Schließen</button>
+      </div>
+    </div>
   </div>
 
   <script src="app.js"></script>
