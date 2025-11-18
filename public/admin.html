@@ -107,7 +107,8 @@
         .then(function (res) {
           if (!res.ok) {
             return res.text().then(function (txt) {
-              throw new Error('Fehler: ' + res.status + ' ' + txt);
+              var msg = 'HTTP ' + res.status + ' – ' + txt;
+              throw new Error(msg);
             });
           }
           return res.json();
@@ -150,9 +151,9 @@
         })
         .catch(function (e) {
           console.error(e);
-          statusEl.textContent = 'Fehler beim Laden. Admin-Code korrekt?';
-          alert('Userliste konnte nicht geladen werden.');
-          document.getElementById('user-table').style.display = 'none';
+          statusEl.textContent = 'Fehler: ' + e.message;
+          alert('Userliste konnte nicht geladen werden.\n\n' + e.message);
+          table.style.display = 'none';
         });
     });
   </script>
