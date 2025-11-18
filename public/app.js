@@ -713,4 +713,167 @@ if (setFixedIdBtn && fixedIdInput) {
     }
 
     var confirmed = window.confirm(
-      'Wenn du deine ID änd
+      'Wenn du deine ID änderst, gehören bestehende Chats zu deiner alten ID. ' +
+        'Nur mit dieser neuen ID wirst du künftig als derselbe User erkannt. Fortfahren?'
+    );
+    if (!confirmed) return;
+
+    localStorage.setItem('siso_user_id', newId);
+    window.location.reload();
+  });
+}
+
+if (toggleMetaBtn && metaPanel) {
+  toggleMetaBtn.addEventListener('click', function () {
+    metaPanel.classList.toggle('hidden');
+  });
+}
+
+// Plus-Button – ID/Invite-Link ODER Name
+if (addChatPlusBtn) {
+  addChatPlusBtn.addEventListener('click', function () {
+    var raw = window.prompt(
+      'ID/Invite-Link (mit #...) ODER Anzeigename der anderen Person eingeben:'
+    );
+    var input = raw ? raw.trim() : '';
+    if (!input) return;
+
+    // 1. Wenn ein "#" drin ist -> als Invite-Link/ID behandeln
+    if (input.indexOf('#') !== -1) {
+      var id = extractUserIdFromInput(input);
+      if (!id) {
+        alert('Konnte keine ID aus dem Invite-Link lesen.');
+        return;
+      }
+      ensureChat(id);
+      return;
+    }
+
+    // 2. Sonst: Namenssuche (case-insensitive, Teilstrings)
+    searchUsersByName(input)
+      .then(function (results) {
+        if (!results || !results.length) {
+          alert('Kein Nutzer mit diesem Namen gefunden.');
+          return;
+        } else if (results.length === 1) {
+          ensureChat(results[0].id);
+          return;
+        } else {
+          var list = results
+            .map(function (u, idx) {
+              return (
+                (idx + 1) +
+                ') ' +
+                u.displayName +
+                ' (ID: ' +
+                getShortId(u.id) +
+                '…)'
+              );
+            })
+            .join('\n');
+          var choiceRaw = window.prompt(
+            'Mehrere Treffer:\n' +
+              list +
+              '\n\nBitte Zahl eingeben (1-' +
+              results.length +
+              '):'
+          );
+          var choice = parseInt(choiceRaw, 10);
+          if (!choice || choice < 1 || choice > results.length) return;
+          ensureChat(results[choice - 1].id);
+        }
+      })
+      .catch(function (e) {
+        console.error(e);
+        alert('Fehler bei der Nutzersuche.');
+      });
+  });
+}
+
+if (sendBtn) {
+  sendBtn.addEventListener('click', function () {
+    sendMessage();
+  });
+}
+
+if (messageInput) {
+  messageInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+      sendMessage();
+    }
+  });
+}
+
+if (reloadMessagesBtn) {
+  reloadMessagesBtn.addEventListener('click', function () {
+    loadMessagesForActiveChat();
+  });
+}
+
+if (sendImageBtn) {
+  sendImageBtn.addEventListener('click', function () {
+    sendImageFromInput();
+  });
+}
+
+if (cameraBtn) {
+  cameraBtn.addEventListener('click', function () {
+    openCamera();
+  });
+}
+
+if (takePhotoBtn) {
+  takePhotoBtn.addEventListener('click', function () {
+    takePhoto();
+  });
+}
+
+if (closeCameraBtn) {
+  closeCameraBtn.addEventListener('click', function () {
+    closeCamera();
+  });
+}
+
+if (deleteChatBtn) {
+  deleteChatBtn.addEventListener('click', function () {
+    deleteActiveChat();
+  });
+}
+
+if (loadDashboardBtn) {
+  loadDashboardBtn.addEventListener('click', function () {
+    loadDashboard();
+  });
+}
+
+// ---------- Init ----------
+
+(function init() {
+  // User automatisch "registrieren" (damit Dashboard ihn sieht)
+  ensureUserProfile()
+    .then(function () {
+      return loadChats();
+    })
+    .then(function () {
+      var hash = window.location.hash || '';
+      if (hash.indexOf('#') === 0) {
+        var otherId = hash.slice(1);
+        if (otherId && otherId !== myUserId) {
+          return ensureChat(otherId);
+        }
+      }
+      return null;
+    })
+    .then(function () {
+      loadMessagesForActiveChat();
+      if (cameraModal) {
+        cameraModal.classList.add('hidden');
+      }
+      setInterval(function () {
+        loadMessagesForActiveChat();
+      }, MESSAGE_POLL_INTERVAL_MS);
+    })
+    .catch(function (e) {
+      console.error('Init-Fehler', e);
+    });
+})();
