@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <title>siso – Admin-Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .admin-container {
+      max-width: 900px;
+      margin: 16px auto;
+      background: #1b1b1b;
+      padding: 16px;
+      border-radius: 8px;
+    }
+    .admin-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 0.9rem;
+    }
+    th, td {
+      border: 1px solid #333;
+      padding: 6px 8px;
+      text-align: left;
+    }
+    th {
+      background: #111;
+    }
+    tbody tr:nth-child(even) {
+      background: #222;
+    }
+    .small {
+      font-size: 0.8rem;
+      color: #aaa;
+    }
+  </style>
+</head>
+<body>
+  <div class="admin-container">
+    <div class="admin-header">
+      <div>
+        <h1>siso – Admin</h1>
+        <p class="small">Nur für dich. Hier siehst du alle registrierten User und ihre Anzeigenamen.</p>
+      </div>
+      <a href="/" style="color:#3b82f6;">Zurück zum Chat</a>
+    </div>
+
+    <label>
+      Admin-Code:
+      <input id="admin-code" type="password" placeholder="Admin-Code eingeben" />
+    </label>
+    <button id="load-users-btn">Userliste laden</button>
+
+    <p id="status" class="small"></p>
+
+    <table id="user-table" style="display:none;">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Anzeigename</th>
+          <th>User-ID</th>
+          <th>Kurz-ID</th>
+          <th>Zuletzt aktualisiert</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script>
+    function formatDate(ts) {
+      if (!ts) return '-';
+      var d = new Date(ts);
+      return d.toLocaleString();
+    }
+
+    function shortId(id) {
+      if (!id) return '';
+      return id.slice(0, 8);
+    }
+
+    document.getElementById('load-users-btn').addEventListener('click', function () {
+      var codeInput = document.getElementById('admin-code');
+      var statusEl = document.getElementById('status');
+      var table = document.getElementById('user-table');
+      var tbody = table.querySelector('tbody');
+
+      var code = codeInput.value ? codeInput.value.trim() : '';
+      if (!code) {
+        alert('Bitte Admin-Code eingeben.');
+        return;
+      }
+
+      statusEl.textContent = 'Lade Userliste...';
+
+      fetch('/api/admin/users', {
+        headers: {
+          'x-admin-code': code
+        }
+      })
+        .then(function (res) {
+          if (!res.ok) {
+            return res.text().then(function (txt) {
+              throw new Error('Fehler: ' + res.status + ' ' + txt);
+            });
+          }
+          return res.json();
+        })
+        .then(function (rows) {
+          tbody.innerHTML = '';
+          if (!rows || !rows.length) {
+            statusEl.textContent = 'Keine User gefunden.';
+            table.style.display = 'none';
+            return;
+          }
+          rows.forEach(function (row, idx) {
+            var tr = document.createElement('tr');
+
+            var tdIndex = document.createElement('td');
+            tdIndex.textContent = idx + 1;
+
+            var tdName = document.createElement('td');
+            tdName.textContent = row.displayName || '(kein Name)';
+
+            var tdId = document.createElement('td');
+            tdId.textContent = row.id;
+
+            var tdShort = document.createElement('td');
+            tdShort.textContent = shortId(row.id);
+
+            var tdUpdated = document.createElement('td');
+            tdUpdated.textContent = formatDate(row.updatedAt);
+
+            tr.appendChild(tdIndex);
+            tr.appendChild(tdName);
+            tr.appendChild(tdId);
+            tr.appendChild(tdShort);
+            tr.appendChild(tdUpdated);
+
+            tbody.appendChild(tr);
+          });
+          table.style.display = '';
+          statusEl.textContent = rows.length + ' User geladen.';
+        })
+        .catch(function (e) {
+          console.error(e);
+          statusEl.textContent = 'Fehler beim Laden. Admin-Code korrekt?';
+          alert('Userliste konnte nicht geladen werden.');
+          document.getElementById('user-table').style.display = 'none';
+        });
+    });
+  </script>
+</body>
+</html>
