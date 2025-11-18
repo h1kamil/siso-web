@@ -7,6 +7,7 @@
 // - Chats löschen
 // - Admin-Dashboard (/api/admin/stats mit Admin-Code)
 // - Namenssuche (/api/users/find) – case-insensitive, Teilstrings
+// - Admin-Userliste (/api/admin/users) – nur mit Admin-Code
 
 const express = require('express');
 const path = require('path');
@@ -16,7 +17,7 @@ const crypto = require('crypto');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// WICHTIG: größeres JSON-Limit, damit Base64-Bilder durchgehen
+// größeres JSON-Limit, damit Base64-Bilder durchgehen
 app.use(express.json({ limit: '5mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -398,7 +399,7 @@ app.post('/api/admin/stats', (req, res) => {
       return res.status(500).json({ error: 'Fehler bei User-Statistik' });
     }
 
-    db.get(`SELECT COUNT(*) AS cnt FROM chats`, (err2, rowChats) => {
+    db.get(`SELECT COUNT(*) AS cnt FROM chats`, (err2) => {
       if (err2) {
         console.error(err2);
         return res.status(500).json({ error: 'Fehler bei Chat-Statistik' });
@@ -431,7 +432,7 @@ app.post('/api/admin/stats', (req, res) => {
                 if (!userId) {
                   return res.json({
                     userCount: rowUsers.cnt,
-                    chatCount: rowChats.cnt,
+                    chatCount: null,      // Chat-Count nicht genutzt
                     messageCount: rowMessages.cnt,
                     messagesLast24h: row24h.cnt,
                     messagesLast7d: row7d.cnt,
@@ -452,7 +453,7 @@ app.post('/api/admin/stats', (req, res) => {
 
                     res.json({
                       userCount: rowUsers.cnt,
-                      chatCount: rowChats.cnt,
+                      chatCount: null,
                       messageCount: rowMessages.cnt,
                       messagesLast24h: row24h.cnt,
                       messagesLast7d: row7d.cnt,
@@ -467,6 +468,33 @@ app.post('/api/admin/stats', (req, res) => {
       });
     });
   });
+});
+
+// ---------- Admin: Userliste ----------
+// GET /api/admin/users
+// Header: x-admin-code: <ADMIN_CODE>
+app.get('/api/admin/users', (req, res) => {
+  const adminCode = req.headers['x-admin-code'];
+  const expected = process.env.ADMIN_CODE || 'changeme-admin';
+
+  if (!adminCode || adminCode !== expected) {
+    return res.status(403).json({ error: 'Nicht berechtigt' });
+  }
+
+  db.all(
+    `
+    SELECT id, displayName, updatedAt
+    FROM users
+    ORDER BY updatedAt DESC
+  `,
+    (err, rows) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: 'Fehler beim Laden der Userliste' });
+      }
+      res.json(rows);
+    }
+  );
 });
 
 // ---------- Server ----------
