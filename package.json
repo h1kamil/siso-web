@@ -1,15 +1,12 @@
 {
-  "name": "siso",
+  "name": "siso-chat",
   "version": "1.0.0",
-  "description": "Siso: sicherer 1-view Webchat",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.18.2",
-    "sqlite3": "^5.1.6",
-    "pg": "^8.11.3",
-    "crypto": "^1.0.1"
+    "sqlite3": "^5.1.6"
   }
 }
