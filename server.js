@@ -19,7 +19,7 @@ const PORT = process.env.PORT || 3000;
 
 // ---------- DB-Verbindung zu Supabase (Postgres) ----------
 
-const connectionString = process.env.SUPABASE_DB_URL;
+const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
   console.error('Fehler: SUPABASE_DB_URL ist nicht gesetzt!');
 }
