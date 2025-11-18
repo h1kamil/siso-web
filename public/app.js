@@ -10,13 +10,28 @@
 // - 1-View: ✕ löscht Nachricht
 // - Profil/ID-Bereich per + ein-/ausblendbar
 // - Admin-Dashboard (Stats) nur mit Admin-Code
+// - Kompatibel ohne moderne Syntax (kein ??, Fallback für randomUUID)
+
+// ---------- Helper: sichere Random-ID ----------
+
+function safeRandomId() {
+  try {
+    if (window.crypto && window.crypto.randomUUID) {
+      return window.crypto.randomUUID();
+    }
+  } catch (e) {
+    console.warn('crypto.randomUUID nicht verfügbar, nutze Fallback');
+  }
+  // Simple Fallback
+  return 'id-' + Math.random().toString(36).slice(2) + '-' + Date.now().toString(36);
+}
 
 // ---------- User-ID ----------
 
 function getOrCreateUserId() {
-  let id = localStorage.getItem('siso_user_id');
+  var id = localStorage.getItem('siso_user_id');
   if (!id) {
-    id = crypto.randomUUID();
+    id = safeRandomId();
     localStorage.setItem('siso_user_id', id);
   }
   return id;
@@ -26,12 +41,12 @@ function getShortId(fullId) {
   return fullId.slice(0, 8);
 }
 
-const myUserId = getOrCreateUserId();
-const myShortId = getShortId(myUserId);
+var myUserId = getOrCreateUserId();
+var myShortId = getShortId(myUserId);
 
 // ---------- Anzeigename ----------
 
-const DISPLAY_NAME_KEY = 'siso_display_name';
+var DISPLAY_NAME_KEY = 'siso_display_name';
 
 function loadDisplayNameLocal() {
   return localStorage.getItem(DISPLAY_NAME_KEY) || '';
@@ -41,298 +56,344 @@ function saveDisplayNameLocal(name) {
   localStorage.setItem(DISPLAY_NAME_KEY, name);
 }
 
-let userProfiles = {}; // userId -> {id, displayName}
+var userProfiles = {}; // userId -> {id, displayName}
 
 // ---------- DOM ----------
 
-const myIdSpan = document.getElementById('my-id');
-const myShortIdSpan = document.getElementById('my-short-id');
-const inviteLinkInput = document.getElementById('invite-link');
-const copyLinkBtn = document.getElementById('copy-link-btn');
-const fixedIdInput = document.getElementById('fixed-id-input');
-const setFixedIdBtn = document.getElementById('set-fixed-id-btn');
+var myIdSpan = document.getElementById('my-id');
+var myShortIdSpan = document.getElementById('my-short-id');
+var inviteLinkInput = document.getElementById('invite-link');
+var copyLinkBtn = document.getElementById('copy-link-btn');
+var fixedIdInput = document.getElementById('fixed-id-input');
+var setFixedIdBtn = document.getElementById('set-fixed-id-btn');
 
-const adminCodeInput = document.getElementById('admin-code-input');
-const loadDashboardBtn = document.getElementById('load-dashboard-btn');
-const dashUserCountSpan = document.getElementById('dash-user-count');
-const dashChatCountSpan = document.getElementById('dash-chat-count');
-const dashMessageCountSpan = document.getElementById('dash-message-count');
-const dashMsg24hSpan = document.getElementById('dash-msg-24h');
-const dashMsg7dSpan = document.getElementById('dash-msg-7d');
-const dashMyMessagesSpan = document.getElementById('dash-my-messages');
+var adminCodeInput = document.getElementById('admin-code-input');
+var loadDashboardBtn = document.getElementById('load-dashboard-btn');
+var dashUserCountSpan = document.getElementById('dash-user-count');
+var dashChatCountSpan = document.getElementById('dash-chat-count');
+var dashMessageCountSpan = document.getElementById('dash-message-count');
+var dashMsg24hSpan = document.getElementById('dash-msg-24h');
+var dashMsg7dSpan = document.getElementById('dash-msg-7d');
+var dashMyMessagesSpan = document.getElementById('dash-my-messages');
 
-const displayNameInput = document.getElementById('display-name-input');
-const saveDisplayNameBtn = document.getElementById('save-display-name-btn');
+var displayNameInput = document.getElementById('display-name-input');
+var saveDisplayNameBtn = document.getElementById('save-display-name-btn');
 
-const toggleMetaBtn = document.getElementById('toggle-meta-btn');
-const metaPanel = document.getElementById('meta-panel');
+var toggleMetaBtn = document.getElementById('toggle-meta-btn');
+var metaPanel = document.getElementById('meta-panel');
 
-const addChatPlusBtn = document.getElementById('add-chat-plus');
+var addChatPlusBtn = document.getElementById('add-chat-plus');
 
-const chatListUl = document.getElementById('chat-list');
-const chatInfoDiv = document.getElementById('chat-info');
-const deleteChatBtn = document.getElementById('delete-chat-btn');
-const reloadMessagesBtn = document.getElementById('reload-messages-btn');
-const messageListUl = document.getElementById('message-list');
-const messageInput = document.getElementById('message-input');
-const sendBtn = document.getElementById('send-btn');
+var chatListUl = document.getElementById('chat-list');
+var chatInfoDiv = document.getElementById('chat-info');
+var deleteChatBtn = document.getElementById('delete-chat-btn');
+var reloadMessagesBtn = document.getElementById('reload-messages-btn');
+var messageListUl = document.getElementById('message-list');
+var messageInput = document.getElementById('message-input');
+var sendBtn = document.getElementById('send-btn');
 
-const imageInput = document.getElementById('image-input');
-const sendImageBtn = document.getElementById('send-image-btn');
-const cameraBtn = document.getElementById('camera-btn');
+var imageInput = document.getElementById('image-input');
+var sendImageBtn = document.getElementById('send-image-btn');
+var cameraBtn = document.getElementById('camera-btn');
 
-const cameraModal = document.getElementById('camera-modal');
-const cameraVideo = document.getElementById('camera-video');
-const takePhotoBtn = document.getElementById('take-photo-btn');
-const closeCameraBtn = document.getElementById('close-camera-btn');
+var cameraModal = document.getElementById('camera-modal');
+var cameraVideo = document.getElementById('camera-video');
+var takePhotoBtn = document.getElementById('take-photo-btn');
+var closeCameraBtn = document.getElementById('close-camera-btn');
 
-const qrcodeCanvas = document.getElementById('qrcode');
+var qrcodeCanvas = document.getElementById('qrcode');
 
 // ---------- Zustand ----------
 
-let chats = [];
-let messagesByChat = {};
-let activeChatId = null;
-let cameraStream = null;
+var chats = [];
+var messagesByChat = {};
+var activeChatId = null;
+var cameraStream = null;
 
-const MESSAGE_POLL_INTERVAL_MS = 4000;
+var MESSAGE_POLL_INTERVAL_MS = 4000;
 
 // ---------- Basisanzeige ----------
 
-myIdSpan.textContent = myUserId;
-myShortIdSpan.textContent = myShortId;
+if (myIdSpan) myIdSpan.textContent = myUserId;
+if (myShortIdSpan) myShortIdSpan.textContent = myShortId;
 
-const inviteLink = `${window.location.origin}/#${myUserId}`;
-inviteLinkInput.value = inviteLink;
+var inviteLink = window.location.origin + '/#' + myUserId;
+if (inviteLinkInput) inviteLinkInput.value = inviteLink;
 
 // feste ID-Feld vorbefüllen
 if (fixedIdInput) {
   fixedIdInput.value = myUserId;
 }
 
-if (window.QRCode) {
-  QRCode.toCanvas(qrcodeCanvas, inviteLink, { width: 200 }, (error) => {
+// QR-Code
+if (window.QRCode && qrcodeCanvas) {
+  window.QRCode.toCanvas(qrcodeCanvas, inviteLink, { width: 200 }, function (error) {
     if (error) console.error(error);
   });
 }
 
-displayNameInput.value = loadDisplayNameLocal();
+if (displayNameInput) {
+  displayNameInput.value = loadDisplayNameLocal();
+}
 
 // ---------- API Helper ----------
 
-async function apiGet(path) {
-  const res = await fetch(path);
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`GET ${path} fehlgeschlagen: ${res.status} ${text}`);
-  }
-  return res.json();
+function apiGet(path) {
+  return fetch(path).then(function (res) {
+    if (!res.ok) {
+      return res.text().then(function (text) {
+        throw new Error('GET ' + path + ' fehlgeschlagen: ' + res.status + ' ' + text);
+      });
+    }
+    return res.json();
+  });
 }
 
-async function apiPost(path, bodyObj) {
-  const res = await fetch(path, {
+function apiPost(path, bodyObj) {
+  return fetch(path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(bodyObj),
+  }).then(function (res) {
+    if (!res.ok) {
+      return res.text().then(function (text) {
+        throw new Error('POST ' + path + ' fehlgeschlagen: ' + res.status + ' ' + text);
+      });
+    }
+    return res.json();
   });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`POST ${path} fehlgeschlagen: ${res.status} ${text}`);
-  }
-  return res.json();
 }
 
-async function apiDelete(path) {
-  const res = await fetch(path, { method: 'DELETE' });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`DELETE ${path} fehlgeschlagen: ${res.status} ${text}`);
-  }
-  return res.json();
+function apiDelete(path) {
+  return fetch(path, { method: 'DELETE' }).then(function (res) {
+    if (!res.ok) {
+      return res.text().then(function (text) {
+        throw new Error('DELETE ' + path + ' fehlgeschlagen: ' + res.status + ' ' + text);
+      });
+    }
+    return res.json();
+  });
 }
 
 // ---------- User-Profile ----------
 
-async function refreshUserProfiles() {
-  if (!chats.length) return;
+function refreshUserProfiles() {
+  if (!chats.length) return Promise.resolve();
 
-  const idsSet = new Set();
-  chats.forEach((c) => {
-    idsSet.add(c.userAId);
-    idsSet.add(c.userBId);
+  var idsSetObj = {};
+  chats.forEach(function (c) {
+    idsSetObj[c.userAId] = true;
+    idsSetObj[c.userBId] = true;
   });
-  idsSet.add(myUserId);
+  idsSetObj[myUserId] = true;
 
-  const ids = Array.from(idsSet);
-  const query = encodeURIComponent(ids.join(','));
+  var ids = Object.keys(idsSetObj);
+  var query = encodeURIComponent(ids.join(','));
 
-  const rows = await apiGet(`/api/users?ids=${query}`);
-  userProfiles = {};
-  rows.forEach((u) => {
-    userProfiles[u.id] = u;
-  });
-
-  renderChatList();
-  renderChatInfo();
+  return apiGet('/api/users?ids=' + query)
+    .then(function (rows) {
+      userProfiles = {};
+      rows.forEach(function (u) {
+        userProfiles[u.id] = u;
+      });
+      renderChatList();
+      renderChatInfo();
+    })
+    .catch(function (e) {
+      console.error('Fehler beim Laden der User-Profile', e);
+    });
 }
 
 function getUserDisplayName(userId) {
-  const profile = userProfiles[userId];
+  var profile = userProfiles[userId];
   if (profile && profile.displayName) return profile.displayName;
   return null;
 }
 
 // beim Start sicherstellen, dass es einen Eintrag in "users" gibt
-async function ensureUserProfile() {
-  let name = (displayNameInput.value || '').trim();
+function ensureUserProfile() {
+  var name = displayNameInput && displayNameInput.value
+    ? displayNameInput.value.trim()
+    : '';
   if (!name) {
-    name = `User ${myShortId}`;
+    name = 'User ' + myShortId;
   }
-  try {
-    await apiPost('/api/users/profile', {
-      userId: myUserId,
-      displayName: name,
-    });
-  } catch (e) {
+  return apiPost('/api/users/profile', {
+    userId: myUserId,
+    displayName: name,
+  }).catch(function (e) {
     console.error('Fehler beim Initial-Userprofil:', e);
-  }
+  });
 }
 
 // ---------- Chats ----------
 
-async function loadChats() {
-  const data = await apiGet(`/api/chats?userId=${encodeURIComponent(myUserId)}`);
-  chats = data;
-  renderChatList();
-  if (!activeChatId && chats.length > 0) {
-    activeChatId = chats[0].id;
-  }
-  renderChatInfo();
-  await refreshUserProfiles();
+function loadChats() {
+  return apiGet('/api/chats?userId=' + encodeURIComponent(myUserId))
+    .then(function (data) {
+      chats = data;
+      renderChatList();
+      if (!activeChatId && chats.length > 0) {
+        activeChatId = chats[0].id;
+      }
+      renderChatInfo();
+      return refreshUserProfiles();
+    })
+    .catch(function (e) {
+      console.error('Fehler beim Laden der Chats', e);
+    });
 }
 
-async function ensureChat(otherUserId) {
-  const res = await apiPost('/api/chats', {
-    myUserId,
-    otherUserId,
-  });
-  const chatId = res.chatId;
-  await loadChats();
-  setActiveChat(chatId);
+function ensureChat(otherUserId) {
+  return apiPost('/api/chats', {
+    myUserId: myUserId,
+    otherUserId: otherUserId,
+  })
+    .then(function (res) {
+      var chatId = res.chatId;
+      return loadChats().then(function () {
+        setActiveChat(chatId);
+      });
+    })
+    .catch(function (e) {
+      console.error('Fehler beim Anlegen des Chats', e);
+      alert('Chat konnte nicht angelegt werden.');
+    });
 }
 
 function getActiveChat() {
   if (!activeChatId) return null;
-  return chats.find((c) => c.id === activeChatId) || null;
+  for (var i = 0; i < chats.length; i++) {
+    if (chats[i].id === activeChatId) return chats[i];
+  }
+  return null;
 }
 
 function setActiveChat(chatId) {
   activeChatId = chatId;
   renderChatList();
   renderChatInfo();
-  loadMessagesForActiveChat().catch((e) => console.error(e));
+  loadMessagesForActiveChat();
 }
 
 function extractUserIdFromInput(raw) {
   if (!raw) return null;
   raw = raw.trim();
-  const idx = raw.lastIndexOf('#');
+  var idx = raw.lastIndexOf('#');
   if (idx !== -1) {
     return raw.slice(idx + 1);
   }
-  return null; // wir behandeln reine Strings ohne # jetzt als Namen
+  return null; // reine Strings ohne # behandeln wir als Namen
 }
 
 // Namenssuche (Frontend)
-async function searchUsersByName(query) {
-  return apiGet(`/api/users/find?q=${encodeURIComponent(query)}`);
+function searchUsersByName(query) {
+  return apiGet('/api/users/find?q=' + encodeURIComponent(query));
 }
 
 // ---------- Nachrichten ----------
 
-async function loadMessagesForActiveChat() {
-  const chat = getActiveChat();
+function loadMessagesForActiveChat() {
+  var chat = getActiveChat();
   if (!chat) return;
-  const msgsFromServer = await apiGet(
-    `/api/messages?chatId=${encodeURIComponent(chat.id)}&userId=${encodeURIComponent(
-      myUserId
-    )}`
-  );
+  apiGet(
+    '/api/messages?chatId=' +
+      encodeURIComponent(chat.id) +
+      '&userId=' +
+      encodeURIComponent(myUserId)
+  )
+    .then(function (msgsFromServer) {
+      var existing = messagesByChat[chat.id] || [];
+      var localOnly = existing.filter(function (m) {
+        return m.localOnly;
+      });
 
-  const existing = messagesByChat[chat.id] || [];
-  const localOnly = existing.filter((m) => m.localOnly);
+      var combined = msgsFromServer.concat(localOnly);
+      combined.sort(function (a, b) {
+        return a.createdAt - b.createdAt;
+      });
 
-  const combined = [...msgsFromServer, ...localOnly];
-  combined.sort((a, b) => a.createdAt - b.createdAt);
-
-  messagesByChat[chat.id] = combined;
-  renderMessages();
+      messagesByChat[chat.id] = combined;
+      renderMessages();
+    })
+    .catch(function (e) {
+      console.error('Fehler beim Laden der Nachrichten', e);
+    });
 }
 
-async function sendMessage() {
-  const chat = getActiveChat();
+function sendMessage() {
+  var chat = getActiveChat();
   if (!chat) {
     alert('Bitte zuerst einen Chat auswählen oder anlegen.');
     return;
   }
-  const text = messageInput.value.trim();
+  var text = messageInput && messageInput.value
+    ? messageInput.value.trim()
+    : '';
   if (!text) return;
 
-  await sendMessageContent(text);
-  messageInput.value = '';
+  sendMessageContent(text).then(function () {
+    if (messageInput) messageInput.value = '';
+  });
 }
 
-async function sendMessageContent(content) {
-  const chat = getActiveChat();
-  if (!chat) return;
-  const otherId = chat.userAId === myUserId ? chat.userBId : chat.userAId;
+function sendMessageContent(content) {
+  var chat = getActiveChat();
+  if (!chat) return Promise.resolve();
+  var otherId = chat.userAId === myUserId ? chat.userBId : chat.userAId;
 
-  await apiPost('/api/messages', {
+  return apiPost('/api/messages', {
     chatId: chat.id,
     senderId: myUserId,
     receiverId: otherId,
-    content,
-  });
-
-  if (!messagesByChat[chat.id]) {
-    messagesByChat[chat.id] = [];
-  }
-  messagesByChat[chat.id].push({
-    id: crypto.randomUUID(),
-    chatId: chat.id,
-    senderId: myUserId,
-    receiverId: otherId,
-    content,
-    createdAt: Date.now(),
-    localOnly: true,
-  });
-  renderMessages();
+    content: content,
+  })
+    .then(function () {
+      if (!messagesByChat[chat.id]) {
+        messagesByChat[chat.id] = [];
+      }
+      messagesByChat[chat.id].push({
+        id: safeRandomId(),
+        chatId: chat.id,
+        senderId: myUserId,
+        receiverId: otherId,
+        content: content,
+        createdAt: Date.now(),
+        localOnly: true,
+      });
+      renderMessages();
+    })
+    .catch(function (e) {
+      console.error('Fehler beim Senden der Nachricht', e);
+      alert('Nachricht konnte nicht gesendet werden.');
+    });
 }
 
 // Bild aus Album
-async function sendImageFromInput() {
-  const chat = getActiveChat();
+function sendImageFromInput() {
+  var chat = getActiveChat();
   if (!chat) {
     alert('Bitte zuerst einen Chat auswählen oder anlegen.');
     return;
   }
-  const file = imageInput.files && imageInput.files[0];
-  if (!file) {
+  if (!imageInput || !imageInput.files || !imageInput.files[0]) {
     alert('Bitte zuerst ein Bild auswählen.');
     return;
   }
+  var file = imageInput.files[0];
 
   if (file.size > 2 * 1024 * 1024) {
     alert('Bild ist zu groß (max. ca. 2MB).');
     return;
   }
 
-  const reader = new FileReader();
-  reader.onload = async () => {
-    const dataUrl = reader.result;
+  var reader = new FileReader();
+  reader.onload = function () {
+    var dataUrl = reader.result;
     if (typeof dataUrl === 'string') {
-      await sendMessageContent(dataUrl);
-      imageInput.value = '';
+      sendMessageContent(dataUrl).then(function () {
+        imageInput.value = '';
+      });
     }
   };
   reader.readAsDataURL(file);
@@ -340,151 +401,179 @@ async function sendImageFromInput() {
 
 // Kamera
 
-async function openCamera() {
+function openCamera() {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     alert('Dein Browser unterstützt die Kamera-Funktion hier leider nicht.');
     return;
   }
-  try {
-    cameraStream = await navigator.mediaDevices.getUserMedia({
+  navigator.mediaDevices
+    .getUserMedia({
       video: { facingMode: 'environment' },
       audio: false,
+    })
+    .then(function (stream) {
+      cameraStream = stream;
+      if (cameraVideo) cameraVideo.srcObject = stream;
+      if (cameraModal) cameraModal.classList.remove('hidden');
+    })
+    .catch(function (e) {
+      console.error(e);
+      alert('Kamera konnte nicht geöffnet werden (Berechtigungen prüfen).');
     });
-  } catch (e) {
-    console.error(e);
-    alert('Kamera konnte nicht geöffnet werden (Berechtigungen prüfen).');
-    return;
-  }
-
-  cameraVideo.srcObject = cameraStream;
-  if (cameraModal) cameraModal.classList.remove('hidden');
 }
 
 function closeCamera() {
   if (cameraStream) {
-    cameraStream.getTracks().forEach((t) => t.stop());
+    cameraStream.getTracks().forEach(function (t) {
+      t.stop();
+    });
     cameraStream = null;
   }
-  cameraVideo.srcObject = null;
+  if (cameraVideo) cameraVideo.srcObject = null;
   if (cameraModal) cameraModal.classList.add('hidden');
 }
 
-async function takePhoto() {
+function takePhoto() {
   if (!cameraStream) return;
-  const chat = getActiveChat();
+  var chat = getActiveChat();
   if (!chat) {
     alert('Bitte zuerst einen Chat auswählen oder anlegen.');
     return;
   }
 
-  const video = cameraVideo;
-  if (!video.videoWidth || !video.videoHeight) {
+  var video = cameraVideo;
+  if (!video || !video.videoWidth || !video.videoHeight) {
     alert('Kamera ist noch nicht bereit. Bitte kurz warten und erneut versuchen.');
     return;
   }
 
-  const canvas = document.createElement('canvas');
+  var canvas = document.createElement('canvas');
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
-  const ctx = canvas.getContext('2d');
+  var ctx = canvas.getContext('2d');
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-  const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-  await sendMessageContent(dataUrl);
-  closeCamera();
+  var dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+  sendMessageContent(dataUrl).then(function () {
+    closeCamera();
+  });
 }
 
 // Nachricht löschen (1-View)
-async function onMessageClicked(msg) {
-  const chat = getActiveChat();
+function onMessageClicked(msg) {
+  var chat = getActiveChat();
   if (!chat) return;
 
+  var promise;
   if (!msg.localOnly) {
-    try {
-      await apiPost(`/api/messages/${encodeURIComponent(msg.id)}/view`, {});
-    } catch (e) {
-      console.error('Fehler beim Löschen der Nachricht:', e);
-    }
+    promise = apiPost('/api/messages/' + encodeURIComponent(msg.id) + '/view', {});
+  } else {
+    promise = Promise.resolve();
   }
 
-  const arr = messagesByChat[chat.id] || [];
-  messagesByChat[chat.id] = arr.filter((m) => m.id !== msg.id);
-  renderMessages();
+  promise
+    .catch(function (e) {
+      console.error('Fehler beim Löschen der Nachricht:', e);
+    })
+    .then(function () {
+      var arr = messagesByChat[chat.id] || [];
+      messagesByChat[chat.id] = arr.filter(function (m) {
+        return m.id !== msg.id;
+      });
+      renderMessages();
+    });
 }
 
 // Chat löschen
-async function deleteActiveChat() {
-  const chat = getActiveChat();
+function deleteActiveChat() {
+  var chat = getActiveChat();
   if (!chat) {
     alert('Kein Chat ausgewählt.');
     return;
   }
 
-  const confirmed = confirm(
+  var confirmed = window.confirm(
     'Diesen Chat und alle Nachrichten FÜR EUCH BEIDE endgültig löschen?'
   );
   if (!confirmed) return;
 
-  try {
-    await apiDelete(
-      `/api/chats/${encodeURIComponent(chat.id)}?userId=${encodeURIComponent(myUserId)}`
-    );
-  } catch (e) {
-    console.error(e);
-    alert('Fehler beim Löschen des Chats.');
-    return;
-  }
+  apiDelete(
+    '/api/chats/' + encodeURIComponent(chat.id) + '?userId=' + encodeURIComponent(myUserId)
+  )
+    .then(function () {
+      chats = chats.filter(function (c) {
+        return c.id !== chat.id;
+      });
+      delete messagesByChat[chat.id];
 
-  chats = chats.filter((c) => c.id !== chat.id);
-  delete messagesByChat[chat.id];
+      if (chats.length > 0) {
+        activeChatId = chats[0].id;
+      } else {
+        activeChatId = null;
+      }
 
-  if (chats.length > 0) {
-    activeChatId = chats[0].id;
-  } else {
-    activeChatId = null;
-  }
-
-  renderChatList();
-  renderChatInfo();
-  renderMessages();
+      renderChatList();
+      renderChatInfo();
+      renderMessages();
+    })
+    .catch(function (e) {
+      console.error(e);
+      alert('Fehler beim Löschen des Chats.');
+    });
 }
 
 // ---------- Admin-Dashboard ----------
 
-async function loadDashboard() {
-  const code = (adminCodeInput.value || '').trim();
+function loadDashboard() {
+  if (!adminCodeInput) return;
+  var code = adminCodeInput.value ? adminCodeInput.value.trim() : '';
   if (!code) {
     alert('Bitte Admin-Code eingeben.');
     return;
   }
 
-  try {
-    const data = await apiPost('/api/admin/stats', {
-      adminCode: code,
-      userId: myUserId,
+  apiPost('/api/admin/stats', {
+    adminCode: code,
+    userId: myUserId,
+  })
+    .then(function (data) {
+      if (dashUserCountSpan)
+        dashUserCountSpan.textContent =
+          data.userCount !== undefined && data.userCount !== null ? data.userCount : '0';
+      if (dashChatCountSpan)
+        dashChatCountSpan.textContent =
+          data.chatCount !== undefined && data.chatCount !== null ? data.chatCount : '0';
+      if (dashMessageCountSpan)
+        dashMessageCountSpan.textContent =
+          data.messageCount !== undefined && data.messageCount !== null
+            ? data.messageCount
+            : '0';
+      if (dashMsg24hSpan)
+        dashMsg24hSpan.textContent =
+          data.messagesLast24h !== undefined && data.messagesLast24h !== null
+            ? data.messagesLast24h
+            : '0';
+      if (dashMsg7dSpan)
+        dashMsg7dSpan.textContent =
+          data.messagesLast7d !== undefined && data.messagesLast7d !== null
+            ? data.messagesLast7d
+            : '0';
+      if (dashMyMessagesSpan)
+        dashMyMessagesSpan.textContent =
+          data.mySentMessages !== undefined && data.mySentMessages !== null
+            ? data.mySentMessages
+            : '0';
+    })
+    .catch(function (e) {
+      console.error('Fehler beim Laden des Dashboards', e);
+      alert('Dashboard konnte nicht geladen werden (Admin-Code korrekt?).');
+      if (dashUserCountSpan) dashUserCountSpan.textContent = '–';
+      if (dashChatCountSpan) dashChatCountSpan.textContent = '–';
+      if (dashMessageCountSpan) dashMessageCountSpan.textContent = '–';
+      if (dashMsg24hSpan) dashMsg24hSpan.textContent = '–';
+      if (dashMsg7dSpan) dashMsg7dSpan.textContent = '–';
+      if (dashMyMessagesSpan) dashMyMessagesSpan.textContent = '–';
     });
-
-    if (dashUserCountSpan) dashUserCountSpan.textContent = data.userCount ?? '0';
-    if (dashChatCountSpan) dashChatCountSpan.textContent = data.chatCount ?? '0';
-    if (dashMessageCountSpan) dashMessageCountSpan.textContent = data.messageCount ?? '0';
-    if (dashMsg24hSpan) dashMsg24hSpan.textContent = data.messagesLast24h ?? '0';
-    if (dashMsg7dSpan) dashMsg7dSpan.textContent = data.messagesLast7d ?? '0';
-    if (dashMyMessagesSpan) {
-      dashMyMessagesSpan.textContent =
-        data.mySentMessages !== null && data.mySentMessages !== undefined
-          ? data.mySentMessages
-          : '0';
-    }
-  } catch (e) {
-    console.error('Fehler beim Laden des Dashboards', e);
-    alert('Dashboard konnte nicht geladen werden (Admin-Code korrekt?).');
-    if (dashUserCountSpan) dashUserCountSpan.textContent = '–';
-    if (dashChatCountSpan) dashChatCountSpan.textContent = '–';
-    if (dashMessageCountSpan) dashMessageCountSpan.textContent = '–';
-    if (dashMsg24hSpan) dashMsg24hSpan.textContent = '–';
-    if (dashMsg7dSpan) dashMsg7dSpan.textContent = '–';
-    if (dashMyMessagesSpan) dashMyMessagesSpan.textContent = '–';
-  }
 }
 
 // ---------- Rendering ----------
@@ -494,69 +583,74 @@ function getOtherUserId(chat) {
 }
 
 function getChatDisplayName(chat) {
-  const otherId = getOtherUserId(chat);
-  const name = getUserDisplayName(otherId);
+  var otherId = getOtherUserId(chat);
+  var name = getUserDisplayName(otherId);
   if (name) return name;
-  return `User ${getShortId(otherId)}…`;
+  return 'User ' + getShortId(otherId) + '…';
 }
 
 function renderChatList() {
+  if (!chatListUl) return;
   chatListUl.innerHTML = '';
-  chats.forEach((chat) => {
-    const li = document.createElement('li');
+  chats.forEach(function (chat) {
+    var li = document.createElement('li');
     li.textContent = getChatDisplayName(chat);
     if (chat.id === activeChatId) {
       li.classList.add('active');
     }
-    li.addEventListener('click', () => setActiveChat(chat.id));
+    li.addEventListener('click', function () {
+      setActiveChat(chat.id);
+    });
     chatListUl.appendChild(li);
   });
 }
 
 function renderChatInfo() {
-  const chat = getActiveChat();
+  if (!chatInfoDiv) return;
+  var chat = getActiveChat();
   if (!chat) {
     chatInfoDiv.textContent = 'Kein Chat ausgewählt.';
     return;
   }
-  const name = getChatDisplayName(chat);
-  chatInfoDiv.textContent = `Chat mit ${name}`;
+  var name = getChatDisplayName(chat);
+  chatInfoDiv.textContent = 'Chat mit ' + name;
 }
 
 function renderMessages() {
-  const chat = getActiveChat();
+  if (!messageListUl) return;
+  var chat = getActiveChat();
   messageListUl.innerHTML = '';
   if (!chat) return;
-  const arr = messagesByChat[chat.id] || [];
+  var arr = messagesByChat[chat.id] || [];
 
-  arr.forEach((msg) => {
-    const li = document.createElement('li');
-    const isMe = msg.senderId === myUserId;
+  arr.forEach(function (msg) {
+    var li = document.createElement('li');
+    var isMe = msg.senderId === myUserId;
     li.classList.add(isMe ? 'msg-me' : 'msg-other');
 
-    const contentDiv = document.createElement('div');
+    var contentDiv = document.createElement('div');
     contentDiv.classList.add('msg-content', 'msg-text');
 
-    const isImage =
-      typeof msg.content === 'string' && msg.content.startsWith('data:image/');
+    var isImage =
+      typeof msg.content === 'string' && msg.content.indexOf('data:image/') === 0;
 
     if (isImage) {
-      const img = document.createElement('img');
+      var img = document.createElement('img');
       img.src = msg.content;
       img.classList.add('msg-image');
       contentDiv.appendChild(img);
 
-      const caption = document.createElement('div');
+      var caption = document.createElement('div');
       caption.textContent = '👁️ Bild – über ✕ löschen';
       contentDiv.appendChild(caption);
     } else {
-      contentDiv.textContent = `👁️ ${msg.content}`;
+      contentDiv.textContent = '👁️ ' + msg.content;
     }
 
-    const closeBtn = document.createElement('button');
+    var closeBtn = document.createElement('button');
     closeBtn.classList.add('msg-close');
     closeBtn.textContent = '✕';
-    closeBtn.addEventListener('click', (e) => {
+    closeBtn.addEventListener('click', function (e) {
       e.stopPropagation();
       onMessageClicked(msg);
     });
@@ -571,170 +665,52 @@ function renderMessages() {
 
 // ---------- Events ----------
 
-copyLinkBtn.addEventListener('click', () => {
-  inviteLinkInput.select();
-  document.execCommand('copy');
-  alert('Invite-Link in die Zwischenablage kopiert.');
-});
-
-saveDisplayNameBtn.addEventListener('click', async () => {
-  const name = displayNameInput.value.trim();
-  if (!name) {
-    alert('Bitte einen Namen eingeben.');
-    return;
-  }
-  saveDisplayNameLocal(name);
-  try {
-    await apiPost('/api/users/profile', {
-      userId: myUserId,
-      displayName: name,
-    });
-    alert('Anzeigename gespeichert.');
-    await refreshUserProfiles();
-  } catch (e) {
-    console.error(e);
-    alert('Fehler beim Speichern des Namens.');
-  }
-});
-
-setFixedIdBtn.addEventListener('click', () => {
-  const newId = (fixedIdInput.value || '').trim();
-  if (!newId) {
-    alert('Bitte eine ID eingeben.');
-    return;
-  }
-  if (newId.length < 6 || newId.length > 64) {
-    alert('Die ID sollte zwischen 6 und 64 Zeichen lang sein.');
-    return;
-  }
-  if (!/^[a-zA-Z0-9._-]+$/.test(newId)) {
-    alert('Bitte nur Buchstaben, Zahlen, Punkt, Unterstrich oder Bindestrich verwenden.');
-    return;
-  }
-
-  const confirmed = confirm(
-    'Wenn du deine ID änderst, gehören bestehende Chats zu deiner alten ID. ' +
-      'Nur mit dieser neuen ID wirst du künftig als derselbe User erkannt. Fortfahren?'
-  );
-  if (!confirmed) return;
-
-  localStorage.setItem('siso_user_id', newId);
-  window.location.reload();
-});
-
-toggleMetaBtn.addEventListener('click', () => {
-  metaPanel.classList.toggle('hidden');
-});
-
-// NEU: Plus-Button – ID/Invite-Link ODER Name
-addChatPlusBtn.addEventListener('click', async () => {
-  const raw = prompt(
-    'ID/Invite-Link (mit #...) ODER Anzeigename der anderen Person eingeben:'
-  );
-  const input = (raw || '').trim();
-  if (!input) return;
-
-  // 1. Wenn ein "#" drin ist -> als Invite-Link/ID behandeln
-  if (input.includes('#')) {
-    const id = extractUserIdFromInput(input);
-    if (!id) {
-      alert('Konnte keine ID aus dem Invite-Link lesen.');
-      return;
-    }
-    await ensureChat(id);
-    return;
-  }
-
-  // 2. Sonst: Namenssuche (case-insensitive, Teilstrings)
-  try {
-    const results = await searchUsersByName(input);
-    if (!results.length) {
-      alert('Kein Nutzer mit diesem Namen gefunden.');
-      return;
-    } else if (results.length === 1) {
-      await ensureChat(results[0].id);
-      return;
-    } else {
-      const list = results
-        .map(
-          (u, idx) => `${idx + 1}) ${u.displayName} (ID: ${getShortId(u.id)}…)`
-        )
-        .join('\n');
-      const choiceRaw = prompt(
-        'Mehrere Treffer:\n' +
-          list +
-          '\n\nBitte Zahl eingeben (1-' +
-          results.length +
-          '):'
-      );
-      const choice = parseInt(choiceRaw, 10);
-      if (!choice || choice < 1 || choice > results.length) return;
-      await ensureChat(results[choice - 1].id);
-    }
-  } catch (e) {
-    console.error(e);
-    alert('Fehler bei der Nutzersuche.');
-  }
-});
-
-sendBtn.addEventListener('click', async () => {
-  await sendMessage();
-});
-
-messageInput.addEventListener('keydown', async (e) => {
-  if (e.key === 'Enter') {
-    await sendMessage();
-  }
-});
-
-reloadMessagesBtn.addEventListener('click', async () => {
-  await loadMessagesForActiveChat();
-});
-
-sendImageBtn.addEventListener('click', async () => {
-  await sendImageFromInput();
-});
-
-cameraBtn.addEventListener('click', async () => {
-  await openCamera();
-});
-
-takePhotoBtn.addEventListener('click', async () => {
-  await takePhoto();
-});
-
-closeCameraBtn.addEventListener('click', () => {
-  closeCamera();
-});
-
-deleteChatBtn.addEventListener('click', async () => {
-  await deleteActiveChat();
-});
-
-if (loadDashboardBtn) {
-  loadDashboardBtn.addEventListener('click', async () => {
-    await loadDashboard();
+if (copyLinkBtn && inviteLinkInput) {
+  copyLinkBtn.addEventListener('click', function () {
+    inviteLinkInput.select();
+    document.execCommand('copy');
+    alert('Invite-Link in die Zwischenablage kopiert.');
   });
 }
 
-// ---------- Init ----------
-
-(async function init() {
-  // User automatisch "registrieren" (damit Dashboard ihn sieht)
-  await ensureUserProfile();
-
-  await loadChats();
-
-  const hash = window.location.hash;
-  if (hash.startsWith('#')) {
-    const otherId = hash.slice(1);
-    if (otherId && otherId !== myUserId) {
-      await ensureChat(otherId);
+if (saveDisplayNameBtn && displayNameInput) {
+  saveDisplayNameBtn.addEventListener('click', function () {
+    var name = displayNameInput.value.trim();
+    if (!name) {
+      alert('Bitte einen Namen eingeben.');
+      return;
     }
-  }
+    saveDisplayNameLocal(name);
+    apiPost('/api/users/profile', {
+      userId: myUserId,
+      displayName: name,
+    })
+      .then(function () {
+        alert('Anzeigename gespeichert.');
+        return refreshUserProfiles();
+      })
+      .catch(function (e) {
+        console.error(e);
+        alert('Fehler beim Speichern des Namens.');
+      });
+  });
+}
 
-  await loadMessagesForActiveChat();
+if (setFixedIdBtn && fixedIdInput) {
+  setFixedIdBtn.addEventListener('click', function () {
+    var newId = fixedIdInput.value ? fixedIdInput.value.trim() : '';
+    if (!newId) {
+      alert('Bitte eine ID eingeben.');
+      return;
+    }
+    if (newId.length < 6 || newId.length > 64) {
+      alert('Die ID sollte zwischen 6 und 64 Zeichen lang sein.');
+      return;
+    }
+    if (!/^[a-zA-Z0-9._-]+$/.test(newId)) {
+      alert('Bitte nur Buchstaben, Zahlen, Punkt, Unterstrich oder Bindestrich verwenden.');
+      return;
+    }
 
-  // Kamera sicherheitshalber aus
-  if (cameraModal) {
-    came
+    var confirmed = window.confirm(
+      'Wenn du deine ID änd
