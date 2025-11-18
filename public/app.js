@@ -2,7 +2,9 @@
 // - User-ID & feste ID (übertragbar auf andere Geräte)
 // - Anzeigename (auf Server gespeichert, Gegenüber sieht ihn)
 // - Invite-Link & QR-Code
+// - automatische Registrierung als User (für Dashboard-Count)
 // - Chats mit "+" anlegen & löschen
+// - Suche nach ID/Invite-Link ODER Anzeigename (case-insensitive, Teilstrings)
 // - automatisches Polling für Nachrichten
 // - Text & Bilder (Album + Kamera)
 // - 1-View: ✕ löscht Nachricht
@@ -180,6 +182,22 @@ function getUserDisplayName(userId) {
   return null;
 }
 
+// beim Start sicherstellen, dass es einen Eintrag in "users" gibt
+async function ensureUserProfile() {
+  let name = (displayNameInput.value || '').trim();
+  if (!name) {
+    name = `User ${myShortId}`;
+  }
+  try {
+    await apiPost('/api/users/profile', {
+      userId: myUserId,
+      displayName: name,
+    });
+  } catch (e) {
+    console.error('Fehler beim Initial-Userprofil:', e);
+  }
+}
+
 // ---------- Chats ----------
 
 async function loadChats() {
@@ -222,7 +240,12 @@ function extractUserIdFromInput(raw) {
   if (idx !== -1) {
     return raw.slice(idx + 1);
   }
-  return raw;
+  return null; // wir behandeln reine Strings ohne # jetzt als Namen
+}
+
+// Namenssuche (Frontend)
+async function searchUsersByName(query) {
+  return apiGet(`/api/users/find?q=${encodeURIComponent(query)}`);
 }
 
 // ---------- Nachrichten ----------
@@ -231,7 +254,9 @@ async function loadMessagesForActiveChat() {
   const chat = getActiveChat();
   if (!chat) return;
   const msgsFromServer = await apiGet(
-    `/api/messages?chatId=${encodeURIComponent(chat.id)}&userId=${encodeURIComponent(myUserId)}`
+    `/api/messages?chatId=${encodeURIComponent(chat.id)}&userId=${encodeURIComponent(
+      myUserId
+    )}`
   );
 
   const existing = messagesByChat[chat.id] || [];
@@ -332,7 +357,7 @@ async function openCamera() {
   }
 
   cameraVideo.srcObject = cameraStream;
-  cameraModal.classList.remove('hidden');
+  if (cameraModal) cameraModal.classList.remove('hidden');
 }
 
 function closeCamera() {
@@ -341,7 +366,7 @@ function closeCamera() {
     cameraStream = null;
   }
   cameraVideo.srcObject = null;
-  cameraModal.classList.add('hidden');
+  if (cameraModal) cameraModal.classList.add('hidden');
 }
 
 async function takePhoto() {
@@ -601,11 +626,55 @@ toggleMetaBtn.addEventListener('click', () => {
   metaPanel.classList.toggle('hidden');
 });
 
+// NEU: Plus-Button – ID/Invite-Link ODER Name
 addChatPlusBtn.addEventListener('click', async () => {
-  const raw = prompt('ID oder Invite-Link der anderen Person eingeben:');
-  const otherId = extractUserIdFromInput(raw || '');
-  if (!otherId) return;
-  await ensureChat(otherId);
+  const raw = prompt(
+    'ID/Invite-Link (mit #...) ODER Anzeigename der anderen Person eingeben:'
+  );
+  const input = (raw || '').trim();
+  if (!input) return;
+
+  // 1. Wenn ein "#" drin ist -> als Invite-Link/ID behandeln
+  if (input.includes('#')) {
+    const id = extractUserIdFromInput(input);
+    if (!id) {
+      alert('Konnte keine ID aus dem Invite-Link lesen.');
+      return;
+    }
+    await ensureChat(id);
+    return;
+  }
+
+  // 2. Sonst: Namenssuche (case-insensitive, Teilstrings)
+  try {
+    const results = await searchUsersByName(input);
+    if (!results.length) {
+      alert('Kein Nutzer mit diesem Namen gefunden.');
+      return;
+    } else if (results.length === 1) {
+      await ensureChat(results[0].id);
+      return;
+    } else {
+      const list = results
+        .map(
+          (u, idx) => `${idx + 1}) ${u.displayName} (ID: ${getShortId(u.id)}…)`
+        )
+        .join('\n');
+      const choiceRaw = prompt(
+        'Mehrere Treffer:\n' +
+          list +
+          '\n\nBitte Zahl eingeben (1-' +
+          results.length +
+          '):'
+      );
+      const choice = parseInt(choiceRaw, 10);
+      if (!choice || choice < 1 || choice > results.length) return;
+      await ensureChat(results[choice - 1].id);
+    }
+  } catch (e) {
+    console.error(e);
+    alert('Fehler bei der Nutzersuche.');
+  }
 });
 
 sendBtn.addEventListener('click', async () => {
@@ -651,6 +720,9 @@ if (loadDashboardBtn) {
 // ---------- Init ----------
 
 (async function init() {
+  // User automatisch "registrieren" (damit Dashboard ihn sieht)
+  await ensureUserProfile();
+
   await loadChats();
 
   const hash = window.location.hash;
@@ -663,7 +735,6 @@ if (loadDashboardBtn) {
 
   await loadMessagesForActiveChat();
 
-  setInterval(() => {
-    loadMessagesForActiveChat().catch((e) => console.error(e));
-  }, MESSAGE_POLL_INTERVAL_MS);
-})();
+  // Kamera sicherheitshalber aus
+  if (cameraModal) {
+    came
