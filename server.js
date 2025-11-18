@@ -1,92 +1,61 @@
-// server.js
+// server.js (SQLite-Version, kein Supabase)
 // - Webserver (Express)
-// - Supabase Postgres statt SQLite
+// - SQLite-DB: users, chats, messages
 // - Verschlüsselung (AES-256-GCM)
 // - 1-View-Messages
 // - User-Anzeigenamen
 // - Chats löschen
 // - Admin-Dashboard (/api/admin/stats mit Admin-Code)
-// - Namenssuche (/api/users/find) – case-insensitive, Teilstrings
-// - Admin-Userliste (/api/admin/users) – nur mit Admin-Code
+// - Namenssuche (/api/users/find)
+// - Admin-Userliste (/api/admin/users)
 
 const express = require('express');
 const path = require('path');
+const sqlite3 = require('sqlite3').verbose();
 const crypto = require('crypto');
-const { Pool } = require('pg');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ---------- DB-Verbindung zu Supabase (Postgres) ----------
-
-const connectionString = process.env.DATABASE_URL;
-if (!connectionString) {
-  console.error('Fehler: SUPABASE_DB_URL ist nicht gesetzt!');
-}
-
-const pool = new Pool({
-  connectionString,
-  ssl: {
-    rejectUnauthorized: false, // nötig für viele gehostete Postgres-Instanzen (Supabase)
-  },
-});
-
-async function query(text, params) {
-  const res = await pool.query(text, params);
-  return res;
-}
-
-// Tabellen anlegen (falls sie noch nicht existieren)
-async function initDb() {
-  // users: id, displayname, updatedat
-  await query(
-    `
-    CREATE TABLE IF NOT EXISTS users (
-      id TEXT PRIMARY KEY,
-      displayname TEXT NOT NULL,
-      updatedat BIGINT NOT NULL
-    )
-  `,
-    []
-  );
-
-  // chats: id, user_a_id, user_b_id, created_at
-  await query(
-    `
-    CREATE TABLE IF NOT EXISTS chats (
-      id TEXT PRIMARY KEY,
-      user_a_id TEXT NOT NULL,
-      user_b_id TEXT NOT NULL,
-      created_at BIGINT NOT NULL
-    )
-  `,
-    []
-  );
-
-  // messages: id, chat_id, sender_id, receiver_id, ciphertext, iv, auth_tag, created_at
-  await query(
-    `
-    CREATE TABLE IF NOT EXISTS messages (
-      id TEXT PRIMARY KEY,
-      chat_id TEXT NOT NULL,
-      sender_id TEXT NOT NULL,
-      receiver_id TEXT NOT NULL,
-      ciphertext TEXT NOT NULL,
-      iv TEXT NOT NULL,
-      auth_tag TEXT NOT NULL,
-      created_at BIGINT NOT NULL
-    )
-  `,
-    []
-  );
-
-  console.log('Datenbanktabellen (users, chats, messages) initialisiert.');
-}
-
-// ---------- Express-Basis ----------
-
 app.use(express.json({ limit: '5mb' })); // für Base64-Bilder
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ---------- DB ----------
+
+const dbPath = path.join(__dirname, 'siso.db');
+const db = new sqlite3.Database(dbPath);
+
+db.serialize(() => {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      displayName TEXT NOT NULL,
+      updatedAt INTEGER NOT NULL
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS chats (
+      id TEXT PRIMARY KEY,
+      userAId TEXT NOT NULL,
+      userBId TEXT NOT NULL,
+      createdAt INTEGER NOT NULL
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS messages (
+      id TEXT PRIMARY KEY,
+      chatId TEXT NOT NULL,
+      senderId TEXT NOT NULL,
+      receiverId TEXT NOT NULL,
+      ciphertext TEXT NOT NULL,
+      iv TEXT NOT NULL,
+      authTag TEXT NOT NULL,
+      createdAt INTEGER NOT NULL
+    )
+  `);
+});
 
 // ---------- Verschlüsselung ----------
 
@@ -121,7 +90,7 @@ function decrypt(ciphertext, ivBase64, authTagBase64) {
 // ---------- User-Profile ----------
 
 // Name setzen/ändern
-app.post('/api/users/profile', async (req, res) => {
+app.post('/api/users/profile', (req, res) => {
   const { userId, displayName } = req.body;
   if (!userId || typeof displayName !== 'string') {
     return res.status(400).json({ error: 'userId und displayName erforderlich' });
@@ -133,59 +102,56 @@ app.post('/api/users/profile', async (req, res) => {
 
   const now = Date.now();
 
-  try {
-    await query(
-      `
-      INSERT INTO users (id, displayname, updatedat)
-      VALUES ($1, $2, $3)
-      ON CONFLICT (id) DO UPDATE SET
-        displayname = EXCLUDED.displayname,
-        updatedat = EXCLUDED.updatedat
-    `,
-      [userId, trimmed, now]
-    );
-    res.json({ ok: true });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Fehler beim Speichern des Anzeigenamens' });
-  }
+  db.run(
+    `
+    INSERT INTO users (id, displayName, updatedAt)
+    VALUES (?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      displayName = excluded.displayName,
+      updatedAt = excluded.updatedAt
+  `,
+    [userId, trimmed, now],
+    (err) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: 'Fehler beim Speichern des Anzeigenamens' });
+      }
+      res.json({ ok: true });
+    }
+  );
 });
 
-// Namen mehrerer User holen (für Chat-Liste etc.)
-app.get('/api/users', async (req, res) => {
+// Namen mehrerer User holen
+app.get('/api/users', (req, res) => {
   const idsParam = req.query.ids;
   if (!idsParam) {
     return res.status(400).json({ error: 'ids-Parameter erforderlich' });
   }
-  const ids = idsParam
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-
+  const ids = idsParam.split(',').map((s) => s.trim()).filter(Boolean);
   if (ids.length === 0) {
     return res.json([]);
   }
 
-  try {
-    const result = await query(
-      `
-      SELECT id,
-             displayname AS "displayName",
-             updatedat   AS "updatedAt"
-      FROM users
-      WHERE id = ANY($1)
-    `,
-      [ids]
-    );
-    res.json(result.rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Fehler beim Laden der Benutzerprofile' });
-  }
+  const placeholders = ids.map(() => '?').join(',');
+  db.all(
+    `
+    SELECT id, displayName, updatedAt
+    FROM users
+    WHERE id IN (${placeholders})
+  `,
+    ids,
+    (err, rows) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: 'Fehler beim Laden der Benutzerprofile' });
+      }
+      res.json(rows);
+    }
+  );
 });
 
 // Namenssuche (case-insensitive, Teilstrings)
-app.get('/api/users/find', async (req, res) => {
+app.get('/api/users/find', (req, res) => {
   const q = (req.query.q || '').trim();
   if (!q) {
     return res.status(400).json({ error: 'q-Parameter erforderlich' });
@@ -193,60 +159,57 @@ app.get('/api/users/find', async (req, res) => {
 
   const like = `%${q.toLowerCase()}%`;
 
-  try {
-    const result = await query(
-      `
-      SELECT id,
-             displayname AS "displayName",
-             updatedat   AS "updatedAt"
-      FROM users
-      WHERE LOWER(displayname) LIKE $1
-      ORDER BY updatedat DESC
-      LIMIT 10
-    `,
-      [like]
-    );
-    res.json(result.rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Fehler bei der Namenssuche' });
-  }
+  db.all(
+    `
+    SELECT id, displayName
+    FROM users
+    WHERE LOWER(displayName) LIKE ?
+    ORDER BY updatedAt DESC
+    LIMIT 10
+  `,
+    [like],
+    (err, rows) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: 'Fehler bei der Namenssuche' });
+      }
+      res.json(rows);
+    }
+  );
 });
 
 // ---------- Chats ----------
 
-async function ensureChat(myUserId, otherUserId) {
-  // Prüfen, ob Chat schon existiert
-  const result = await query(
+function ensureChat(myUserId, otherUserId, callback) {
+  db.get(
     `
-    SELECT id
-    FROM chats
-    WHERE (user_a_id = $1 AND user_b_id = $2)
-       OR (user_a_id = $2 AND user_b_id = $1)
+    SELECT * FROM chats
+    WHERE (userAId = ? AND userBId = ?)
+       OR (userAId = ? AND userBId = ?)
   `,
-    [myUserId, otherUserId]
+    [myUserId, otherUserId, otherUserId, myUserId],
+    (err, row) => {
+      if (err) return callback(err);
+      if (row) return callback(null, row.id);
+
+      const chatId = crypto.randomUUID();
+      const createdAt = Date.now();
+      db.run(
+        `
+        INSERT INTO chats (id, userAId, userBId, createdAt)
+        VALUES (?, ?, ?, ?)
+      `,
+        [chatId, myUserId, otherUserId, createdAt],
+        (err2) => {
+          if (err2) return callback(err2);
+          callback(null, chatId);
+        }
+      );
+    }
   );
-
-  if (result.rows.length > 0) {
-    return result.rows[0].id;
-  }
-
-  // sonst neu anlegen
-  const chatId = crypto.randomUUID();
-  const createdAt = Date.now();
-
-  await query(
-    `
-    INSERT INTO chats (id, user_a_id, user_b_id, created_at)
-    VALUES ($1, $2, $3, $4)
-  `,
-    [chatId, myUserId, otherUserId, createdAt]
-  );
-
-  return chatId;
 }
 
-app.post('/api/chats', async (req, res) => {
+app.post('/api/chats', (req, res) => {
   const { myUserId, otherUserId } = req.body;
   if (!myUserId || !otherUserId) {
     return res.status(400).json({ error: 'myUserId und otherUserId sind erforderlich' });
@@ -255,41 +218,38 @@ app.post('/api/chats', async (req, res) => {
     return res.status(400).json({ error: 'Mit dir selbst chatten ergibt keinen Sinn 😉' });
   }
 
-  try {
-    const chatId = await ensureChat(myUserId, otherUserId);
+  ensureChat(myUserId, otherUserId, (err, chatId) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'Fehler beim Anlegen des Chats' });
+    }
     res.json({ chatId });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Fehler beim Anlegen des Chats' });
-  }
+  });
 });
 
-app.get('/api/chats', async (req, res) => {
+app.get('/api/chats', (req, res) => {
   const userId = req.query.userId;
   if (!userId) return res.status(400).json({ error: 'userId erforderlich' });
 
-  try {
-    const result = await query(
-      `
-      SELECT id,
-             user_a_id AS "userAId",
-             user_b_id AS "userBId",
-             created_at AS "createdAt"
-      FROM chats
-      WHERE user_a_id = $1 OR user_b_id = $1
-      ORDER BY created_at DESC
-    `,
-      [userId]
-    );
-    res.json(result.rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Fehler beim Laden der Chats' });
-  }
+  db.all(
+    `
+    SELECT * FROM chats
+    WHERE userAId = ? OR userBId = ?
+    ORDER BY createdAt DESC
+  `,
+    [userId, userId],
+    (err, rows) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: 'Fehler beim Laden der Chats' });
+      }
+      res.json(rows);
+    }
+  );
 });
 
 // Chat + Nachrichten löschen
-app.delete('/api/chats/:id', async (req, res) => {
+app.delete('/api/chats/:id', (req, res) => {
   const chatId = req.params.id;
   const userId = req.query.userId;
 
@@ -297,33 +257,42 @@ app.delete('/api/chats/:id', async (req, res) => {
     return res.status(400).json({ error: 'userId erforderlich' });
   }
 
-  try {
-    const result = await query(
-      `
-      SELECT id
-      FROM chats
-      WHERE id = $1 AND (user_a_id = $2 OR user_b_id = $2)
-    `,
-      [chatId, userId]
-    );
+  db.get(
+    `
+    SELECT * FROM chats
+    WHERE id = ? AND (userAId = ? OR userBId = ?)
+  `,
+    [chatId, userId, userId],
+    (err, chat) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: 'Fehler beim Prüfen des Chats' });
+      }
+      if (!chat) {
+        return res.status(403).json({ error: 'Kein Zugriff auf diesen Chat' });
+      }
 
-    if (result.rows.length === 0) {
-      return res.status(403).json({ error: 'Kein Zugriff auf diesen Chat' });
+      db.run(`DELETE FROM messages WHERE chatId = ?`, [chatId], (err2) => {
+        if (err2) {
+          console.error(err2);
+          return res.status(500).json({ error: 'Fehler beim Löschen der Nachrichten' });
+        }
+
+        db.run(`DELETE FROM chats WHERE id = ?`, [chatId], (err3) => {
+          if (err3) {
+            console.error(err3);
+            return res.status(500).json({ error: 'Fehler beim Löschen des Chats' });
+          }
+          res.json({ ok: true });
+        });
+      });
     }
-
-    await query(`DELETE FROM messages WHERE chat_id = $1`, [chatId]);
-    await query(`DELETE FROM chats WHERE id = $1`, [chatId]);
-
-    res.json({ ok: true });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Fehler beim Löschen des Chats' });
-  }
+  );
 });
 
 // ---------- Nachrichten ----------
 
-app.post('/api/messages', async (req, res) => {
+app.post('/api/messages', (req, res) => {
   const { chatId, senderId, receiverId, content } = req.body;
   if (!chatId || !senderId || !receiverId || !content) {
     return res
@@ -335,84 +304,84 @@ app.post('/api/messages', async (req, res) => {
   const id = crypto.randomUUID();
   const createdAt = Date.now();
 
-  try {
-    await query(
-      `
-      INSERT INTO messages (id, chat_id, sender_id, receiver_id, ciphertext, iv, auth_tag, created_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-    `,
-      [id, chatId, senderId, receiverId, ciphertext, iv, authTag, createdAt]
-    );
-    res.json({ ok: true, id });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Fehler beim Speichern der Nachricht' });
-  }
+  db.run(
+    `
+    INSERT INTO messages (id, chatId, senderId, receiverId, ciphertext, iv, authTag, createdAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `,
+    [id, chatId, senderId, receiverId, ciphertext, iv, authTag, createdAt],
+    (err) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: 'Fehler beim Speichern der Nachricht' });
+      }
+      res.json({ ok: true, id });
+    }
+  );
 });
 
-app.get('/api/messages', async (req, res) => {
+app.get('/api/messages', (req, res) => {
   const { chatId, userId } = req.query;
   if (!chatId || !userId) {
     return res.status(400).json({ error: 'chatId und userId erforderlich' });
   }
 
-  try {
-    const result = await query(
-      `
-      SELECT id,
-             chat_id    AS "chatId",
-             sender_id  AS "senderId",
-             receiver_id AS "receiverId",
-             ciphertext,
-             iv,
-             auth_tag   AS "authTag",
-             created_at AS "createdAt"
-      FROM messages
-      WHERE chat_id = $1 AND receiver_id = $2
-      ORDER BY created_at ASC
-    `,
-      [chatId, userId]
-    );
-
-    const decrypted = result.rows.map((row) => {
-      let content = '';
-      try {
-        content = decrypt(row.ciphertext, row.iv, row.authTag);
-      } catch (e) {
-        console.error('Entschlüsselung fehlgeschlagen', e);
-        content = '[Fehler bei Entschlüsselung]';
+  db.all(
+    `
+    SELECT * FROM messages
+    WHERE chatId = ? AND receiverId = ?
+    ORDER BY createdAt ASC
+  `,
+    [chatId, userId],
+    (err, rows) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: 'Fehler beim Laden der Nachrichten' });
       }
-      return {
-        id: row.id,
-        chatId: row.chatId,
-        senderId: row.senderId,
-        receiverId: row.receiverId,
-        content,
-        createdAt: row.createdAt,
-      };
-    });
 
-    res.json(decrypted);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Fehler beim Laden der Nachrichten' });
-  }
+      const decrypted = rows.map((row) => {
+        let content = '';
+        try {
+          content = decrypt(row.ciphertext, row.iv, row.authTag);
+        } catch (e) {
+          console.error('Entschlüsselung fehlgeschlagen', e);
+          content = '[Fehler bei Entschlüsselung]';
+        }
+        return {
+          id: row.id,
+          chatId: row.chatId,
+          senderId: row.senderId,
+          receiverId: row.receiverId,
+          content,
+          createdAt: row.createdAt,
+        };
+      });
+
+      res.json(decrypted);
+    }
+  );
 });
 
-app.post('/api/messages/:id/view', async (req, res) => {
+app.post('/api/messages/:id/view', (req, res) => {
   const id = req.params.id;
-  try {
-    await query(`DELETE FROM messages WHERE id = $1`, [id]);
-    res.json({ ok: true });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Fehler beim Löschen der Nachricht' });
-  }
+  db.run(
+    `
+    DELETE FROM messages WHERE id = ?
+  `,
+    [id],
+    (err) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: 'Fehler beim Löschen der Nachricht' });
+      }
+      res.json({ ok: true });
+    }
+  );
 });
 
 // ---------- Admin-Dashboard ----------
 
-app.post('/api/admin/stats', async (req, res) => {
+app.post('/api/admin/stats', (req, res) => {
   const { adminCode, userId } = req.body || {};
   const expected = process.env.ADMIN_CODE || 'changeme-admin';
 
@@ -424,45 +393,85 @@ app.post('/api/admin/stats', async (req, res) => {
   const oneDayAgo = now - 24 * 60 * 60 * 1000;
   const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
 
-  try {
-    const usersRes = await query(`SELECT COUNT(*)::int AS cnt FROM users`, []);
-    const chatsRes = await query(`SELECT COUNT(*)::int AS cnt FROM chats`, []);
-    const msgsRes = await query(`SELECT COUNT(*)::int AS cnt FROM messages`, []);
-    const msgs24hRes = await query(
-      `SELECT COUNT(*)::int AS cnt FROM messages WHERE created_at >= $1`,
-      [oneDayAgo]
-    );
-    const msgs7dRes = await query(
-      `SELECT COUNT(*)::int AS cnt FROM messages WHERE created_at >= $1`,
-      [sevenDaysAgo]
-    );
-
-    let mySentMessages = null;
-    if (userId) {
-      const myRes = await query(
-        `SELECT COUNT(*)::int AS cnt FROM messages WHERE sender_id = $1`,
-        [userId]
-      );
-      mySentMessages = myRes.rows[0].cnt;
+  db.get(`SELECT COUNT(*) AS cnt FROM users`, (err1, rowUsers) => {
+    if (err1) {
+      console.error(err1);
+      return res.status(500).json({ error: 'Fehler bei User-Statistik' });
     }
 
-    res.json({
-      userCount: usersRes.rows[0].cnt,
-      chatCount: chatsRes.rows[0].cnt,
-      messageCount: msgsRes.rows[0].cnt,
-      messagesLast24h: msgs24hRes.rows[0].cnt,
-      messagesLast7d: msgs7dRes.rows[0].cnt,
-      mySentMessages,
+    db.get(`SELECT COUNT(*) AS cnt FROM chats`, (err2, rowChats) => {
+      if (err2) {
+        console.error(err2);
+        return res.status(500).json({ error: 'Fehler bei Chat-Statistik' });
+      }
+
+      db.get(`SELECT COUNT(*) AS cnt FROM messages`, (err3, rowMessages) => {
+        if (err3) {
+          console.error(err3);
+          return res.status(500).json({ error: 'Fehler bei Nachrichten-Statistik' });
+        }
+
+        db.get(
+          `SELECT COUNT(*) AS cnt FROM messages WHERE createdAt >= ?`,
+          [oneDayAgo],
+          (err4, row24h) => {
+            if (err4) {
+              console.error(err4);
+              return res.status(500).json({ error: 'Fehler bei 24h-Statistik' });
+            }
+
+            db.get(
+              `SELECT COUNT(*) AS cnt FROM messages WHERE createdAt >= ?`,
+              [sevenDaysAgo],
+              (err5, row7d) => {
+                if (err5) {
+                  console.error(err5);
+                  return res.status(500).json({ error: 'Fehler bei 7-Tage-Statistik' });
+                }
+
+                if (!userId) {
+                  return res.json({
+                    userCount: rowUsers.cnt,
+                    chatCount: rowChats.cnt,
+                    messageCount: rowMessages.cnt,
+                    messagesLast24h: row24h.cnt,
+                    messagesLast7d: row7d.cnt,
+                    mySentMessages: null,
+                  });
+                }
+
+                db.get(
+                  `SELECT COUNT(*) AS cnt FROM messages WHERE senderId = ?`,
+                  [userId],
+                  (err6, rowMyMsgs) => {
+                    if (err6) {
+                      console.error(err6);
+                      return res.status(500).json({
+                        error: 'Fehler bei persönlichen Nachrichten-Statistik',
+                      });
+                    }
+
+                    res.json({
+                      userCount: rowUsers.cnt,
+                      chatCount: rowChats.cnt,
+                      messageCount: rowMessages.cnt,
+                      messagesLast24h: row24h.cnt,
+                      messagesLast7d: row7d.cnt,
+                      mySentMessages: rowMyMsgs.cnt,
+                    });
+                  }
+                );
+              }
+            );
+          }
+        );
+      });
     });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Fehler bei Admin-Statistiken' });
-  }
+  });
 });
 
-// ---------- Admin: Userliste ----------
-
-app.get('/api/admin/users', async (req, res) => {
+// Admin: Userliste
+app.get('/api/admin/users', (req, res) => {
   const adminCode = req.headers['x-admin-code'];
   const expected = process.env.ADMIN_CODE || 'changeme-admin';
 
@@ -470,36 +479,24 @@ app.get('/api/admin/users', async (req, res) => {
     return res.status(403).json({ error: 'Nicht berechtigt' });
   }
 
-  try {
-    const result = await query(
-      `
-      SELECT id,
-             displayname AS "displayName",
-             updatedat   AS "updatedAt"
-      FROM users
-      ORDER BY updatedat DESC
-    `,
-      []
-    );
-    res.json(result.rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Fehler beim Laden der Userliste' });
-  }
+  db.all(
+    `
+    SELECT id, displayName, updatedAt
+    FROM users
+    ORDER BY updatedAt DESC
+  `,
+    (err, rows) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: 'Fehler beim Laden der Userliste' });
+      }
+      res.json(rows);
+    }
+  );
 });
 
-// ---------- Serverstart ----------
+// ---------- Server ----------
 
-initDb()
-  .then(() => {
-    app.listen(PORT, () => {
-      console.log(`siso-Server läuft auf Port ${PORT} (Supabase-DB)`);
-    });
-  })
-  .catch((err) => {
-    console.error('Fehler bei initDb:', err);
-    // trotzdem starten, aber ohne DB wird es Fehler geben
-    app.listen(PORT, () => {
-      console.log(`siso-Server läuft auf Port ${PORT}, aber initDb ist fehlgeschlagen`);
-    });
-  });
+app.listen(PORT, () => {
+  console.log(`siso-Server läuft mit SQLite auf Port ${PORT}`);
+});
