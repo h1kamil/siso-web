@@ -16,7 +16,8 @@ const crypto = require('crypto');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json());
+// WICHTIG: größeres JSON-Limit, damit Base64-Bilder durchgehen
+app.use(express.json({ limit: '5mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ---------- DB ----------
@@ -149,8 +150,6 @@ app.get('/api/users', (req, res) => {
 });
 
 // Namenssuche (case-insensitive, Teilstrings)
-// GET /api/users/find?q=User
-// -> [{ id, displayName }]
 app.get('/api/users/find', (req, res) => {
   const q = (req.query.q || '').trim();
   if (!q) {
@@ -380,8 +379,6 @@ app.post('/api/messages/:id/view', (req, res) => {
 });
 
 // ---------- Admin-Dashboard ----------
-// POST /api/admin/stats
-// Body: { adminCode, userId }
 
 app.post('/api/admin/stats', (req, res) => {
   const { adminCode, userId } = req.body || {};
