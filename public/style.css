@@ -1,258 +1,248 @@
 body {
   margin: 0;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background: #111;
-  color: #eee;
+  background: #0b0b0b;
+  color: #f9fafb;
 }
 
-#app {
-  max-width: 1100px;
+.app-container {
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 16px;
+  padding: 8px;
 }
 
-/* Header */
-
-.top-header {
+.app-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
+  align-items: baseline;
+  padding: 8px 0;
+  border-bottom: 1px solid #222;
 }
 
-.subtitle {
-  color: #aaa;
-  font-size: 0.9rem;
+.app-main {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 8px;
+  margin-top: 8px;
+  height: calc(100vh - 80px);
 }
 
-#toggle-meta-btn {
-  padding: 4px 12px;
-  border-radius: 999px;
-  border: none;
-  background: #3b82f6;
-  color: white;
-  cursor: pointer;
-  font-size: 1.2rem;
+.sidebar {
+  background: #111827;
+  padding: 8px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
 }
 
-#toggle-meta-btn:hover {
-  background: #2563eb;
+.chat-area {
+  background: #111827;
+  padding: 8px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
 }
 
-section, main {
-  margin-bottom: 16px;
-  background: #1b1b1b;
-  padding: 12px;
+.meta-panel {
+  margin-top: 8px;
+  padding: 8px;
+  background: #030712;
   border-radius: 8px;
 }
 
-.profile, .identity {
-  margin-bottom: 12px;
+.meta-panel.hidden {
+  display: none;
 }
 
-input {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 8px;
-  margin: 4px 0;
-  border-radius: 4px;
-  border: 1px solid #444;
-  background: #222;
-  color: #eee;
-}
-
-button {
-  padding: 8px 12px;
-  margin-top: 4px;
-  border-radius: 4px;
-  border: none;
-  background: #3b82f6;
-  color: white;
-  cursor: pointer;
-}
-
-button:hover {
-  background: #2563eb;
-}
-
-.info {
-  font-size: 0.85rem;
-  color: #aaa;
-}
-
-hr {
-  border: none;
-  border-top: 1px solid #333;
-  margin: 12px 0;
-}
-
-/* WICHTIG: hidden = komplett unsichtbar */
-.hidden {
-  display: none !important;
-}
-
-/* Chat-Layout */
-
-.chat-layout {
-  display: flex;
-  gap: 12px;
-  min-height: 320px;
-}
-
-.chat-list {
-  flex: 1;
-  max-width: 260px;
-}
-
-.chat-list-header {
+.chatlist-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  margin-top: 8px;
 }
 
-#add-chat-plus {
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 1.1rem;
+.chat-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  overflow-y: auto;
+  flex: 1;
 }
 
-.chat-window {
-  flex: 2;
-  display: flex;
-  flex-direction: column;
+.chat-list li {
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.chat-list li:hover {
+  background: #1f2937;
+}
+
+.chat-list li.active {
+  background: #1d4ed8;
 }
 
 .chat-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
 }
 
-#chat-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-#chat-list li {
-  padding: 8px;
-  margin-bottom: 4px;
-  background: #222;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-#chat-list li.active {
-  background: #3b82f6;
-}
-
-/* Nachrichten mit X rechts */
-
-#message-list {
+.message-list {
   list-style: none;
   padding: 0;
   margin: 8px 0;
   flex: 1;
   overflow-y: auto;
-  max-height: 320px;
+  border-radius: 4px;
+  background: #020617;
 }
 
-#message-list li {
+.message-list li {
   display: flex;
-  align-items: flex-start;
-  max-width: 80%;
-  padding: 6px 8px;
-  margin: 6px 0;
-  border-radius: 6px;
+  justify-content: space-between;
+  align-items: center;
+  margin: 4px 8px;
 }
 
-.msg-me {
+.msg-me .msg-content {
+  background: #1d4ed8;
   margin-left: auto;
-  background: #2563eb;
 }
 
-.msg-other {
-  margin-right: auto;
+.msg-other .msg-content {
   background: #374151;
+  margin-right: auto;
 }
 
 .msg-content {
-  flex: 1;
-}
-
-.msg-text {
-  cursor: default;
-}
-
-.msg-close {
-  margin-left: 6px;
-  border: none;
-  background: transparent;
-  color: #ccc;
-  cursor: pointer;
-  padding: 0 4px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  max-width: 70%;
   font-size: 0.9rem;
 }
 
+.msg-close {
+  margin-left: 4px;
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+}
+
 .msg-close:hover {
-  color: #fff;
+  color: #f87171;
 }
 
 .msg-image {
-  max-width: 100%;
-  max-height: 200px;
+  max-width: 220px;
+  max-height: 220px;
   display: block;
+  border-radius: 4px;
   margin-bottom: 4px;
 }
 
-.message-input {
+.chat-footer {
+  margin-top: 4px;
+}
+
+.input-row {
   display: flex;
-  gap: 8px;
-  margin-top: 8px;
+  gap: 4px;
+  margin-top: 4px;
 }
 
-.message-input input[type="text"],
-.message-input input:not([type]) {
+input[type="text"],
+input[type="file"],
+input[type="password"] {
   flex: 1;
+  padding: 6px 8px;
+  border-radius: 4px;
+  border: 1px solid #374151;
+  background: #020617;
+  color: #f9fafb;
+  font-size: 0.9rem;
 }
 
-/* Kamera-Bereich (kein Overlay, einfach unter dem Chat) */
+.btn {
+  border: none;
+  border-radius: 4px;
+  padding: 6px 10px;
+  background: #1d4ed8;
+  color: #f9fafb;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.btn:hover {
+  background: #2563eb;
+}
+
+.btn.small {
+  font-size: 0.8rem;
+  padding: 4px 8px;
+}
+
+.btn.fullwidth {
+  width: 100%;
+  margin: 4px 0;
+}
+
+.btn.circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  padding: 0;
+}
+
+.btn.danger {
+  background: #b91c1c;
+}
+
+.btn.danger:hover {
+  background: #dc2626;
+}
+
+.hint {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+/* Kamera-Modal */
 
 .camera-modal {
-  margin-top: 8px;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
 }
 
-.camera-inner {
-  background: #111;
-  padding: 12px;
+.camera-modal.hidden {
+  display: none;
+}
+
+.camera-content {
+  background: #020617;
+  padding: 8px;
   border-radius: 8px;
-  max-width: 100%;
-  max-height: 60vh;
   display: flex;
   flex-direction: column;
+  gap: 8px;
 }
 
 #camera-video {
-  width: 100%;
-  max-height: 50vh;
+  width: 320px;
+  height: 240px;
   background: #000;
+  border-radius: 4px;
 }
 
-.camera-controls {
+.camera-buttons {
   display: flex;
   justify-content: space-between;
-  margin-top: 8px;
-}
-
-/* Admin-Dashboard */
-
-.dashboard {
-  margin-top: 8px;
-  font-size: 0.95rem;
-}
-
-.dashboard p {
-  margin: 4px 0;
 }
